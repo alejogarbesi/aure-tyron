@@ -2,627 +2,328 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Probate los lentes – Auré</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #F7F4F0; color: #1a1a18; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, 'Helvetica Neue', sans-serif; background: #F7F4F0; color: #1a1a18; min-height: 100vh; }
 
-  #launcher {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 24px 20px;
-    text-align: center;
-  }
-  #launcher h1 {
-    font-size: 22px;
-    font-weight: 300;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-  #launcher p {
-    font-size: 13px;
-    color: #888780;
-    margin-bottom: 28px;
-    line-height: 1.6;
-  }
+  #screen-launch { padding: 32px 20px; max-width: 440px; margin: 0 auto; text-align: center; }
+  #screen-launch h1 { font-size: 26px; font-weight: 300; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 8px; }
+  #screen-launch p { font-size: 13px; color: #888780; line-height: 1.6; margin-bottom: 32px; }
 
-  .model-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 24px;
-  }
-  .model-btn {
-    background: #fff;
-    border: 1.5px solid #ddd8ce;
-    border-radius: 10px;
-    padding: 12px 8px;
-    cursor: pointer;
-    transition: border-color .15s, transform .1s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  .model-btn:active { transform: scale(0.97); }
+  .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 28px; }
+  .model-btn { background: #fff; border: 1.5px solid #ddd8ce; border-radius: 12px; padding: 14px 6px 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 7px; transition: border-color .15s; -webkit-appearance: none; }
   .model-btn.selected { border-color: #c8a96e; background: #fdf8ef; }
-  .model-btn img {
-    width: 72px;
-    height: 40px;
-    object-fit: contain;
-  }
-  .model-btn .model-name {
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #5F5E5A;
-    font-weight: 500;
-  }
-  .model-btn .model-price {
-    font-size: 11px;
-    color: #888780;
-  }
+  .model-btn .mname { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #5F5E5A; font-weight: 500; }
+  .model-btn .mprice { font-size: 11px; color: #aaa; }
 
-  .start-btn {
-    width: 100%;
-    background: #1a1a18;
-    color: #F7F4F0;
-    border: none;
-    padding: 16px;
-    font-size: 12px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    cursor: pointer;
-    border-radius: 8px;
-    font-family: inherit;
-    transition: opacity .15s;
-  }
-  .start-btn:disabled { opacity: 0.4; cursor: default; }
-  .start-btn:not(:disabled):active { opacity: 0.85; }
+  .start-btn { width: 100%; background: #1a1a18; color: #F7F4F0; border: none; padding: 17px; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; border-radius: 10px; font-family: inherit; }
+  .start-btn:disabled { opacity: 0.35; }
 
-  #tryon-view {
-    display: none;
-    position: relative;
-    width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
-    background: #000;
-    border-radius: 16px;
-    overflow: hidden;
-  }
+  #screen-loading { display: none; padding: 60px 20px; text-align: center; }
+  .spinner { width: 36px; height: 36px; border: 2.5px solid #ddd8ce; border-top-color: #c8a96e; border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 18px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #screen-loading p { font-size: 13px; color: #888780; letter-spacing: 1px; }
+  #load-error { display: none; font-size: 13px; color: #c0392b; margin-top: 12px; line-height: 1.5; }
 
-  #video {
-    width: 100%;
-    display: block;
-    transform: scaleX(-1);
-    border-radius: 16px;
-  }
+  #screen-tryon { display: none; }
+  .video-wrap { position: relative; width: 100%; max-width: 440px; margin: 0 auto; background: #000; }
+  #vid { width: 100%; display: block; transform: scaleX(-1); }
+  #cvs { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
 
-  #overlay-canvas {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    transform: scaleX(-1);
-    pointer-events: none;
-    border-radius: 16px;
-  }
+  .tryon-bottom { max-width: 440px; margin: 0 auto; padding: 14px 16px 24px; }
+  .status { font-size: 12px; color: #888780; text-align: center; margin-bottom: 12px; letter-spacing: 0.5px; min-height: 16px; }
 
-  #tryon-ui {
-    display: none;
-    max-width: 480px;
-    margin: 12px auto 0;
-    padding: 0 20px 24px;
-  }
-
-  .tryon-controls {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .ctrl-btn {
-    flex: 1;
-    background: #fff;
-    border: 0.5px solid #ddd8ce;
-    border-radius: 8px;
-    padding: 10px 6px;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    cursor: pointer;
-    font-family: inherit;
-    color: #5F5E5A;
-    transition: background .1s;
-  }
-  .ctrl-btn:active { background: #f0ebe2; }
-  .ctrl-btn.primary {
-    background: #c8a96e;
-    border-color: #c8a96e;
-    color: #1a1a18;
-    font-weight: 500;
-  }
-
-  .size-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-    background: #fff;
-    border: 0.5px solid #ddd8ce;
-    border-radius: 8px;
-    padding: 10px 14px;
-  }
-  .size-label { font-size: 12px; color: #888780; letter-spacing: 1px; flex: 1; }
-  .size-row input[type=range] { flex: 2; accent-color: #c8a96e; }
-  .size-val { font-size: 12px; font-weight: 500; width: 30px; text-align: right; }
-
-  .model-pills {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-  }
-  .pill {
-    padding: 6px 12px;
-    border-radius: 99px;
-    border: 0.5px solid #ddd8ce;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    cursor: pointer;
-    background: #fff;
-    color: #5F5E5A;
-    transition: all .1s;
-  }
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pill { padding: 7px 13px; border-radius: 99px; border: 0.5px solid #ddd8ce; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; background: #fff; color: #5F5E5A; font-family: inherit; -webkit-appearance: none; }
   .pill.active { background: #1a1a18; color: #F7F4F0; border-color: #1a1a18; }
 
-  .status-bar {
-    font-size: 12px;
-    color: #888780;
-    text-align: center;
-    margin-bottom: 10px;
-    min-height: 18px;
-    letter-spacing: 0.5px;
-  }
+  .size-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 0.5px solid #ddd8ce; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+  .size-row label { font-size: 12px; color: #888780; letter-spacing: 1px; flex: 1; }
+  .size-row input { flex: 2; accent-color: #c8a96e; }
+  .size-row span { font-size: 12px; font-weight: 500; width: 34px; text-align: right; }
 
-  #loading-screen {
-    display: none;
-    max-width: 480px;
-    margin: 40px auto;
-    text-align: center;
-    padding: 20px;
-  }
-  .spinner {
-    width: 32px; height: 32px;
-    border: 2px solid #ddd8ce;
-    border-top-color: #c8a96e;
-    border-radius: 50%;
-    animation: spin .7s linear infinite;
-    margin: 0 auto 16px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  #loading-screen p { font-size: 13px; color: #888780; letter-spacing: 1px; }
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .ctrl { padding: 12px 6px; border-radius: 8px; border: 0.5px solid #ddd8ce; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; background: #fff; color: #5F5E5A; font-family: inherit; -webkit-appearance: none; }
+  .ctrl.gold { background: #c8a96e; border-color: #c8a96e; color: #1a1a18; font-weight: 500; }
+
+  #manual-hint { display: none; background: #fff8ec; border: 0.5px solid #f0d080; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; font-size: 12px; color: #7a5c00; line-height: 1.5; }
 </style>
 </head>
 <body>
 
-<div id="launcher">
+<div id="screen-launch">
   <h1>Auré</h1>
-  <p>Elegí un modelo y probátelo en vivo<br>con la cámara de tu celular</p>
-
-  <div class="model-grid" id="model-grid"></div>
-
-  <button class="start-btn" id="start-btn" disabled onclick="startTryOn()">
-    Iniciar prueba virtual
-  </button>
+  <p>Elegí un modelo y probátelo con<br>la cámara de tu celular</p>
+  <div class="model-grid" id="mgrid"></div>
+  <button class="start-btn" id="startbtn" disabled onclick="startTryOn()">Iniciar prueba virtual</button>
 </div>
 
-<div id="loading-screen">
+<div id="screen-loading">
   <div class="spinner"></div>
-  <p>Cargando reconocimiento facial...</p>
+  <p id="load-msg">Iniciando cámara...</p>
+  <p id="load-error"></p>
 </div>
 
-<div id="tryon-view">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="overlay-canvas" id="overlay-canvas"></canvas>
-</div>
-
-<div id="tryon-ui">
-  <div class="status-bar" id="status-bar">Buscando tu cara...</div>
-
-  <div class="model-pills" id="model-pills"></div>
-
-  <div class="size-row">
-    <span class="size-label">Tamaño</span>
-    <input type="range" id="size-slider" min="60" max="160" value="100" step="1"
-      oninput="sizeVal=this.value;document.getElementById('size-out').textContent=this.value+'%'">
-    <span class="size-val" id="size-out">100%</span>
+<div id="screen-tryon">
+  <div class="video-wrap">
+    <video id="vid" autoplay playsinline muted></video>
+    <canvas id="cvs"></canvas>
   </div>
-
-  <div class="tryon-controls">
-    <button class="ctrl-btn" onclick="takePic()">Capturar foto</button>
-    <button class="ctrl-btn" onclick="stopTryOn()">Cerrar</button>
-    <button class="ctrl-btn primary" onclick="goToBuy()">Comprar ahora</button>
+  <div class="tryon-bottom">
+    <div class="status" id="status">Centrá tu cara en la cámara</div>
+    <div id="manual-hint">No se detectó la cara automáticamente. Usá los controles de abajo para posicionar los lentes manualmente.</div>
+    <div class="pill-row" id="pillrow"></div>
+    <div class="size-row">
+      <label>Tamaño</label>
+      <input type="range" id="szslider" min="50" max="180" value="100" step="1" oninput="sz=+this.value;document.getElementById('szout').textContent=this.value+'%'">
+      <span id="szout">100%</span>
+    </div>
+    <div class="size-row" id="yrow" style="display:none">
+      <label>Posición</label>
+      <input type="range" id="yslider" min="-100" max="100" value="0" step="1" oninput="manualY=+this.value">
+      <span></span>
+    </div>
+    <div class="btn-row">
+      <button class="ctrl" onclick="snap()">Foto</button>
+      <button class="ctrl" onclick="stopTryOn()">Cerrar</button>
+      <button class="ctrl gold" onclick="buy()">Comprar</button>
+    </div>
   </div>
 </div>
 
 <script>
 const MODELS = [
-  {
-    id: 'terra',
-    name: 'Terra',
-    price: '$94.999',
-    url: 'https://auresunglasses.com.ar/productos/terra',
-    img: 'https://auresunglasses.com.ar/archivos/productos/tierra-placeholder.png',
-    overlayImg: null,
-    color: '#8B6914'
-  },
-  {
-    id: 'noir',
-    name: 'Noir',
-    price: '$94.999',
-    url: 'https://auresunglasses.com.ar/productos/noir',
-    img: null,
-    overlayImg: null,
-    color: '#1a1a18'
-  },
-  {
-    id: 'lumen',
-    name: 'Lumen',
-    price: '$84.999',
-    url: 'https://auresunglasses.com.ar/productos/lumen',
-    img: null,
-    overlayImg: null,
-    color: '#C8A96E'
-  },
-  {
-    id: 'eclipse',
-    name: 'Eclipse',
-    price: '$94.999',
-    url: 'https://auresunglasses.com.ar/productos/eclipse',
-    img: null,
-    overlayImg: null,
-    color: '#3A3A38'
-  },
-  {
-    id: 'sol',
-    name: 'Sol',
-    price: '$89.999',
-    url: 'https://auresunglasses.com.ar/productos/sol',
-    img: null,
-    overlayImg: null,
-    color: '#B5860D'
-  },
-  {
-    id: 'dusk',
-    name: 'Dusk',
-    price: '$94.999',
-    url: 'https://auresunglasses.com.ar/productos/dusk',
-    img: null,
-    overlayImg: null,
-    color: '#5A4A3A'
-  }
+  { id:'terra',   name:'Terra',   price:'$94.999', url:'https://auresunglasses.com.ar/productos/terra',   color:'#8B6914' },
+  { id:'noir',    name:'Noir',    price:'$94.999', url:'https://auresunglasses.com.ar/productos/noir',    color:'#1a1a18' },
+  { id:'lumen',   name:'Lumen',   price:'$84.999', url:'https://auresunglasses.com.ar/productos/lumen',   color:'#C8A96E' },
+  { id:'eclipse', name:'Eclipse', price:'$94.999', url:'https://auresunglasses.com.ar/productos/eclipse', color:'#3A3A38' },
+  { id:'sol',     name:'Sol',     price:'$89.999', url:'https://auresunglasses.com.ar/productos/sol',     color:'#B5860D' },
+  { id:'dusk',    name:'Dusk',    price:'$94.999', url:'https://auresunglasses.com.ar/productos/dusk',    color:'#5A4A3A' }
 ];
 
-let selectedModel = null;
-let sizeVal = 100;
-let videoStream = null;
-let animFrame = null;
-let faceApiLoaded = false;
-let detectionRunning = false;
-let lastDetection = null;
-let overlayImages = {};
+let sel = null, sz = 100, manualY = 0;
+let stream = null, raf = null, detector = null;
+let lastFace = null, noFaceCount = 0, manualMode = false;
 
-function buildModelGrid() {
-  const grid = document.getElementById('model-grid');
-  const pills = document.getElementById('model-pills');
-  grid.innerHTML = '';
-  pills.innerHTML = '';
+function frameSVG(m, w, h) {
+  const c = m.color;
+  const s = {
+    terra:`<rect x="4" y="10" width="44" height="28" rx="10" stroke="${c}" stroke-width="3" fill="none"/><rect x="72" y="10" width="44" height="28" rx="10" stroke="${c}" stroke-width="3" fill="none"/><line x1="48" y1="24" x2="72" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="24" x2="0" y2="18" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="24" x2="120" y2="18" stroke="${c}" stroke-width="2.5"/>`,
+    noir:`<rect x="4" y="12" width="44" height="24" rx="4" stroke="${c}" stroke-width="3" fill="none"/><rect x="72" y="12" width="44" height="24" rx="4" stroke="${c}" stroke-width="3" fill="none"/><line x1="48" y1="24" x2="72" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="24" x2="0" y2="18" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="24" x2="120" y2="18" stroke="${c}" stroke-width="2.5"/>`,
+    lumen:`<ellipse cx="26" cy="24" rx="22" ry="14" stroke="${c}" stroke-width="3" fill="none"/><ellipse cx="94" cy="24" rx="22" ry="14" stroke="${c}" stroke-width="3" fill="none"/><line x1="48" y1="24" x2="72" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="24" x2="0" y2="18" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="24" x2="120" y2="18" stroke="${c}" stroke-width="2.5"/>`,
+    eclipse:`<path d="M4 28 Q26 6 48 24" stroke="${c}" stroke-width="3" fill="none"/><path d="M72 24 Q94 6 116 28" stroke="${c}" stroke-width="3" fill="none"/><line x1="48" y1="24" x2="72" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="28" x2="0" y2="22" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="28" x2="120" y2="22" stroke="${c}" stroke-width="2.5"/>`,
+    sol:`<rect x="8" y="8" width="40" height="32" rx="14" stroke="${c}" stroke-width="3" fill="none"/><rect x="72" y="8" width="40" height="32" rx="14" stroke="${c}" stroke-width="3" fill="none"/><line x1="48" y1="24" x2="72" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="8" y1="24" x2="0" y2="18" stroke="${c}" stroke-width="2.5"/><line x1="112" y1="24" x2="120" y2="18" stroke="${c}" stroke-width="2.5"/>`,
+    dusk:`<polygon points="6,12 42,12 50,24 42,36 6,36 0,24" stroke="${c}" stroke-width="2.5" fill="none"/><polygon points="70,12 106,12 120,24 106,36 70,36 62,24" stroke="${c}" stroke-width="2.5" fill="none"/><line x1="50" y1="24" x2="62" y2="24" stroke="${c}" stroke-width="2.5"/>`
+  };
+  return `<svg width="${w}" height="${h}" viewBox="0 0 120 48" fill="none">${s[m.id]||s.terra}</svg>`;
+}
 
+function buildUI() {
+  const grid = document.getElementById('mgrid');
+  const pills = document.getElementById('pillrow');
   MODELS.forEach(m => {
-    const btn = document.createElement('div');
-    btn.className = 'model-btn';
-    btn.dataset.id = m.id;
-    btn.onclick = () => selectModel(m.id);
-    btn.innerHTML = `
-      <svg width="72" height="36" viewBox="0 0 120 50" fill="none">
-        ${getFrameSVG(m)}
-      </svg>
-      <span class="model-name">${m.name}</span>
-      <span class="model-price">${m.price}</span>
-    `;
-    grid.appendChild(btn);
-
-    const pill = document.createElement('div');
-    pill.className = 'pill';
-    pill.dataset.id = m.id;
-    pill.textContent = m.name;
-    pill.onclick = () => selectModel(m.id);
-    pills.appendChild(pill);
+    const b = document.createElement('button');
+    b.className = 'model-btn'; b.dataset.id = m.id;
+    b.innerHTML = frameSVG(m,72,36) + `<span class="mname">${m.name}</span><span class="mprice">${m.price}</span>`;
+    b.onclick = () => pick(m.id);
+    grid.appendChild(b);
+    const p = document.createElement('button');
+    p.className = 'pill'; p.dataset.id = m.id; p.textContent = m.name;
+    p.onclick = () => pick(m.id);
+    pills.appendChild(p);
   });
 }
 
-function getFrameSVG(m) {
-  const c = m.color;
-  const shapes = {
-    terra:  `<rect x="4" y="12" width="44" height="28" rx="10" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><rect x="72" y="12" width="44" height="28" rx="10" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><line x1="48" y1="26" x2="72" y2="26" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="26" x2="0" y2="20" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="26" x2="120" y2="20" stroke="${c}" stroke-width="2.5"/>`,
-    noir:   `<rect x="4" y="14" width="44" height="24" rx="4" stroke="${c}" stroke-width="3" fill="none" opacity="0.9"/><rect x="72" y="14" width="44" height="24" rx="4" stroke="${c}" stroke-width="3" fill="none" opacity="0.9"/><line x1="48" y1="26" x2="72" y2="26" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="26" x2="0" y2="20" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="26" x2="120" y2="20" stroke="${c}" stroke-width="2.5"/>`,
-    lumen:  `<ellipse cx="26" cy="26" rx="22" ry="16" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><ellipse cx="94" cy="26" rx="22" ry="16" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><line x1="48" y1="26" x2="72" y2="26" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="26" x2="0" y2="20" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="26" x2="120" y2="20" stroke="${c}" stroke-width="2.5"/>`,
-    eclipse:`<path d="M4 30 Q26 8 48 26" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><path d="M72 26 Q94 8 116 30" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><line x1="48" y1="26" x2="72" y2="26" stroke="${c}" stroke-width="2.5"/><line x1="4" y1="30" x2="0" y2="24" stroke="${c}" stroke-width="2.5"/><line x1="116" y1="30" x2="120" y2="24" stroke="${c}" stroke-width="2.5"/>`,
-    sol:    `<rect x="8" y="10" width="40" height="32" rx="14" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><rect x="72" y="10" width="40" height="32" rx="14" stroke="${c}" stroke-width="3" fill="none" opacity="0.85"/><line x1="48" y1="26" x2="72" y2="26" stroke="${c}" stroke-width="2.5"/><line x1="8" y1="26" x2="0" y2="20" stroke="${c}" stroke-width="2.5"/><line x1="112" y1="26" x2="120" y2="20" stroke="${c}" stroke-width="2.5"/>`,
-    dusk:   `<polygon points="6,14 42,14 50,26 42,38 6,38 0,26" stroke="${c}" stroke-width="2.5" fill="none" opacity="0.85"/><polygon points="70,14 106,14 120,26 106,38 70,38 62,26" stroke="${c}" stroke-width="2.5" fill="none" opacity="0.85"/><line x1="50" y1="26" x2="62" y2="26" stroke="${c}" stroke-width="2.5"/>`
-  };
-  return shapes[m.id] || shapes.terra;
+function pick(id) {
+  sel = id;
+  document.querySelectorAll('.model-btn').forEach(b => b.classList.toggle('selected', b.dataset.id===id));
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.id===id));
+  document.getElementById('startbtn').disabled = false;
 }
 
-function selectModel(id) {
-  selectedModel = id;
-  document.querySelectorAll('.model-btn').forEach(b => b.classList.toggle('selected', b.dataset.id === id));
-  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.dataset.id === id));
-  document.getElementById('start-btn').disabled = false;
-  if (detectionRunning) { }
+function show(id) {
+  ['screen-launch','screen-loading','screen-tryon'].forEach(s => {
+    document.getElementById(s).style.display = s===id ? 'block' : 'none';
+  });
 }
 
-function drawGlassesOnCanvas(detection) {
-  const canvas = document.getElementById('overlay-canvas');
-  const video = document.getElementById('video');
-  const ctx = canvas.getContext('2d');
+async function startTryOn() {
+  if (!sel) return;
+  show('screen-loading');
+  document.getElementById('load-error').style.display = 'none';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} }
+    });
+    const vid = document.getElementById('vid');
+    vid.srcObject = stream;
+    await new Promise(r => { vid.onloadedmetadata = r; });
+    await vid.play();
+    document.getElementById('load-msg').textContent = 'Cargando detección facial...';
+    await loadDetector();
+    show('screen-tryon');
+    loop();
+  } catch(e) {
+    document.getElementById('load-error').style.display = 'block';
+    document.getElementById('load-error').textContent =
+      e.name === 'NotAllowedError'
+        ? 'Permiso de cámara denegado. Andá a Configuración > Safari > Cámara y permitilo.'
+        : 'No se pudo iniciar la cámara: ' + e.message;
+    setTimeout(() => show('screen-launch'), 4000);
+  }
+}
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+async function loadDetector() {
+  if (detector) return;
+  return new Promise((res) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+    s.onload = async () => {
+      try {
+        const BASE = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(BASE),
+          faceapi.nets.faceLandmark68TinyNet.loadFromUri(BASE)
+        ]);
+        detector = 'faceapi';
+      } catch(e) { detector = 'manual'; }
+      res();
+    };
+    s.onerror = () => { detector = 'manual'; res(); };
+    document.head.appendChild(s);
+  });
+}
 
-  if (!detection) return;
+async function loop() {
+  if (!stream) return;
+  const vid = document.getElementById('vid');
+  const cvs = document.getElementById('cvs');
+  const ctx = cvs.getContext('2d');
+  const status = document.getElementById('status');
+  cvs.width = vid.videoWidth || 640;
+  cvs.height = vid.videoHeight || 480;
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
 
-  const landmarks = detection.landmarks;
-  const lEye = landmarks.getLeftEye();
-  const rEye = landmarks.getRightEye();
+  if (detector === 'faceapi' && typeof faceapi !== 'undefined') {
+    try {
+      const det = await faceapi
+        .detectSingleFace(vid, new faceapi.TinyFaceDetectorOptions({inputSize:224, scoreThreshold:0.3}))
+        .withFaceLandmarks(true);
+      if (det) {
+        lastFace = det; noFaceCount = 0; manualMode = false;
+        document.getElementById('manual-hint').style.display = 'none';
+        document.getElementById('yrow').style.display = 'none';
+        status.textContent = '✓ Cara detectada';
+        drawOnFace(ctx, det, cvs.width, cvs.height);
+      } else {
+        noFaceCount++;
+        if (noFaceCount > 30) {
+          manualMode = true;
+          document.getElementById('manual-hint').style.display = 'block';
+          document.getElementById('yrow').style.display = 'flex';
+          status.textContent = 'Mirá directo a la cámara con buena luz';
+          drawManual(ctx, cvs.width, cvs.height);
+        } else if (lastFace) {
+          drawOnFace(ctx, lastFace, cvs.width, cvs.height);
+        }
+      }
+    } catch(e) { drawManual(ctx, cvs.width, cvs.height); }
+  } else {
+    manualMode = true;
+    document.getElementById('manual-hint').style.display = 'block';
+    document.getElementById('yrow').style.display = 'flex';
+    status.textContent = 'Modo manual activo';
+    drawManual(ctx, cvs.width, cvs.height);
+  }
+  raf = requestAnimationFrame(loop);
+}
 
+function drawOnFace(ctx, det, cw, ch) {
+  const lm = det.landmarks;
+  const lEye = lm.getLeftEye(), rEye = lm.getRightEye();
   const lx = lEye.reduce((s,p)=>s+p.x,0)/lEye.length;
   const ly = lEye.reduce((s,p)=>s+p.y,0)/lEye.length;
   const rx = rEye.reduce((s,p)=>s+p.x,0)/rEye.length;
   const ry = rEye.reduce((s,p)=>s+p.y,0)/rEye.length;
-
-  const eyeDist = Math.sqrt(Math.pow(rx-lx,2)+Math.pow(ry-ly,2));
-  const scale = (sizeVal / 100);
-  const frameW = eyeDist * 2.8 * scale;
-  const frameH = frameW * 0.42;
-  const cx = (lx + rx) / 2;
-  const cy = (ly + ry) / 2;
-  const angle = Math.atan2(ry - ly, rx - lx);
-
-  const model = MODELS.find(m => m.id === selectedModel);
-  if (!model) return;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-
-  drawFrameCanvas(ctx, model, frameW, frameH);
-
-  ctx.restore();
+  const dist = Math.hypot(rx-lx, ry-ly);
+  const fw = dist * 2.8 * (sz/100), fh = fw * 0.42;
+  const cx = (lx+rx)/2, cy = (ly+ry)/2;
+  const angle = Math.atan2(ry-ly, rx-lx);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+  drawFrame(ctx, fw, fh); ctx.restore();
 }
 
-function drawFrameCanvas(ctx, model, fw, fh) {
-  const c = model.color;
-  const lw = fw * 0.06;
-  ctx.strokeStyle = c;
-  ctx.lineWidth = lw;
-  ctx.lineCap = 'round';
+function drawManual(ctx, cw, ch) {
+  const cx = cw/2, cy = ch/2 + manualY;
+  const fw = cw * 0.55 * (sz/100), fh = fw * 0.42;
+  ctx.save(); ctx.translate(cx, cy); drawFrame(ctx, fw, fh); ctx.restore();
+  ctx.strokeStyle = 'rgba(200,169,110,0.4)'; ctx.lineWidth = 1.5; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.ellipse(cx, cy + ch*0.42*0.15, cw*0.3, ch*0.42, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+}
 
-  const lensW = fw * 0.42;
-  const lensH = fh;
-  const gap = fw * 0.06;
-  const lx = -(gap/2 + lensW/2);
-  const rx = gap/2 + lensW/2;
-  const y = 0;
-
-  ctx.globalAlpha = 0.88;
-
-  if (model.id === 'terra') {
-    roundRect(ctx, lx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.45);
-    roundRect(ctx, rx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.45);
-  } else if (model.id === 'noir') {
-    roundRect(ctx, lx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.12);
-    roundRect(ctx, rx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.12);
-  } else if (model.id === 'lumen') {
-    ctx.beginPath(); ctx.ellipse(lx, y, lensW/2, lensH/2, 0, 0, Math.PI*2); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(rx, y, lensW/2, lensH/2, 0, 0, Math.PI*2); ctx.stroke();
-  } else if (model.id === 'eclipse') {
-    ctx.beginPath();
-    ctx.moveTo(lx - lensW/2, y + lensH*0.3);
-    ctx.quadraticCurveTo(lx, y - lensH*0.7, lx + lensW/2, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(rx - lensW/2, y);
-    ctx.quadraticCurveTo(rx, y - lensH*0.7, rx + lensW/2, y + lensH*0.3);
-    ctx.stroke();
-  } else if (model.id === 'sol') {
-    roundRect(ctx, lx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.65);
-    roundRect(ctx, rx - lensW/2, y - lensH/2, lensW, lensH, lensH*0.65);
-  } else if (model.id === 'dusk') {
-    hexFrame(ctx, lx, y, lensW, lensH);
-    hexFrame(ctx, rx, y, lensW, lensH);
-  }
-
-  ctx.beginPath();
-  ctx.moveTo(lx + lensW/2, y);
-  ctx.lineTo(rx - lensW/2, y);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(lx - lensW/2, y);
-  ctx.lineTo(lx - lensW/2 - fw*0.12, y - fh*0.2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(rx + lensW/2, y);
-  ctx.lineTo(rx + lensW/2 + fw*0.12, y - fh*0.2);
-  ctx.stroke();
-
-  ctx.globalAlpha = 0.15;
-  ctx.fillStyle = c;
-  if (model.id === 'lumen') {
-    ctx.beginPath(); ctx.ellipse(lx, y, lensW/2, lensH/2, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(rx, y, lensW/2, lensH/2, 0, 0, Math.PI*2); ctx.fill();
-  } else {
-    ctx.beginPath();
-    roundRectPath(ctx, lx - lensW/2, y - lensH/2, lensW, lensH,
-      model.id === 'noir' ? lensH*0.12 : model.id === 'sol' ? lensH*0.65 : lensH*0.45);
-    ctx.fill();
-    ctx.beginPath();
-    roundRectPath(ctx, rx - lensW/2, y - lensH/2, lensW, lensH,
-      model.id === 'noir' ? lensH*0.12 : model.id === 'sol' ? lensH*0.65 : lensH*0.45);
-    ctx.fill();
-  }
+function drawFrame(ctx, fw, fh) {
+  const m = MODELS.find(x=>x.id===sel); if (!m) return;
+  const c = m.color, lw = Math.max(1.5, fw*0.055);
+  const lensW = fw*0.42, lensH = fh, gap = fw*0.06;
+  const lx = -(gap/2+lensW/2), rx = gap/2+lensW/2;
+  ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const shapes = {
+    terra: () => { rRect(ctx,lx-lensW/2,-lensH/2,lensW,lensH,lensH*0.45); rRect(ctx,rx-lensW/2,-lensH/2,lensW,lensH,lensH*0.45); },
+    noir:  () => { rRect(ctx,lx-lensW/2,-lensH/2,lensW,lensH,lensH*0.1);  rRect(ctx,rx-lensW/2,-lensH/2,lensW,lensH,lensH*0.1); },
+    lumen: () => { oval(ctx,lx,0,lensW/2,lensH/2); oval(ctx,rx,0,lensW/2,lensH/2); },
+    eclipse:()=> {
+      ctx.beginPath(); ctx.moveTo(lx-lensW/2,lensH*0.3); ctx.quadraticCurveTo(lx,-(lensH*0.7),lx+lensW/2,0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rx-lensW/2,0); ctx.quadraticCurveTo(rx,-(lensH*0.7),rx+lensW/2,lensH*0.3); ctx.stroke();
+    },
+    sol:  () => { rRect(ctx,lx-lensW/2,-lensH/2,lensW,lensH,lensH*0.65); rRect(ctx,rx-lensW/2,-lensH/2,lensW,lensH,lensH*0.65); },
+    dusk: () => { hex(ctx,lx,0,lensW,lensH); hex(ctx,rx,0,lensW,lensH); }
+  };
+  (shapes[sel]||shapes.terra)();
+  ctx.beginPath(); ctx.moveTo(lx+lensW/2,0); ctx.lineTo(rx-lensW/2,0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lx-lensW/2,0); ctx.lineTo(lx-lensW/2-fw*0.12,-fh*0.2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rx+lensW/2,0); ctx.lineTo(rx+lensW/2+fw*0.12,-fh*0.2); ctx.stroke();
+  ctx.globalAlpha = 0.13; ctx.fillStyle = c;
+  if (sel==='lumen') { fillOval(ctx,lx,0,lensW/2,lensH/2); fillOval(ctx,rx,0,lensW/2,lensH/2); }
+  else { fillRRect(ctx,lx-lensW/2,-lensH/2,lensW,lensH,sel==='noir'?lensH*0.1:sel==='sol'?lensH*0.65:lensH*0.45); fillRRect(ctx,rx-lensW/2,-lensH/2,lensW,lensH,sel==='noir'?lensH*0.1:sel==='sol'?lensH*0.65:lensH*0.45); }
   ctx.globalAlpha = 1;
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  roundRectPath(ctx, x, y, w, h, r);
-  ctx.stroke();
-}
+function rRect(ctx,x,y,w,h,r){ctx.beginPath();rRectPath(ctx,x,y,w,h,r);ctx.stroke();}
+function fillRRect(ctx,x,y,w,h,r){ctx.beginPath();rRectPath(ctx,x,y,w,h,r);ctx.fill();}
+function rRectPath(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+function oval(ctx,cx,cy,rx,ry){ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();}
+function fillOval(ctx,cx,cy,rx,ry){ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();}
+function hex(ctx,cx,cy,fw,fh){ctx.beginPath();for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/6;ctx.lineTo(cx+fw/2*Math.cos(a)*0.9,cy+fh/2*Math.sin(a));}ctx.closePath();ctx.stroke();}
 
-function roundRectPath(ctx, x, y, w, h, r) {
-  r = Math.min(r, w/2, h/2);
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
-}
-
-function hexFrame(ctx, cx, cy, fw, fh) {
-  const pts = [];
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 3) * i - Math.PI / 6;
-    pts.push([cx + (fw/2)*Math.cos(a)*0.9, cy + (fh/2)*Math.sin(a)]);
-  }
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < 6; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-  ctx.closePath();
-  ctx.stroke();
-}
-
-async function startTryOn() {
-  if (!selectedModel) return;
-
-  document.getElementById('launcher').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'block';
-
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-    });
-    const video = document.getElementById('video');
-    video.srcObject = videoStream;
-    await new Promise(r => video.onloadedmetadata = r);
-
-    if (!faceApiLoaded) {
-      await loadFaceApi();
-    }
-
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('tryon-view').style.display = 'block';
-    document.getElementById('tryon-ui').style.display = 'block';
-
-    detectionRunning = true;
-    detectLoop();
-
-  } catch(e) {
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('launcher').style.display = 'block';
-    alert('No se pudo acceder a la cámara. Asegurate de dar permiso cuando el navegador lo solicite.');
-  }
-}
-
-async function loadFaceApi() {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-    script.onload = async () => {
-      try {
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL)
-        ]);
-        faceApiLoaded = true;
-        resolve();
-      } catch(e) { reject(e); }
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
-
-async function detectLoop() {
-  if (!detectionRunning) return;
-  const video = document.getElementById('video');
-  const statusBar = document.getElementById('status-bar');
-
-  try {
-    const det = await faceapi
-      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-      .withFaceLandmarks(true);
-
-    if (det) {
-      lastDetection = det;
-      statusBar.textContent = '✓ Cara detectada';
-      drawGlassesOnCanvas(det);
-    } else {
-      statusBar.textContent = 'Mirá directo a la cámara con buena luz';
-      const canvas = document.getElementById('overlay-canvas');
-      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    }
-  } catch(e) {}
-
-  animFrame = requestAnimationFrame(detectLoop);
+function snap() {
+  const vid = document.getElementById('vid'), cvs = document.getElementById('cvs');
+  const out = document.createElement('canvas');
+  out.width = vid.videoWidth; out.height = vid.videoHeight;
+  const ctx = out.getContext('2d');
+  ctx.save(); ctx.scale(-1,1); ctx.drawImage(vid,-out.width,0); ctx.restore();
+  ctx.drawImage(cvs,0,0);
+  const a = document.createElement('a');
+  a.download = 'aure-'+sel+'.jpg'; a.href = out.toDataURL('image/jpeg',0.92); a.click();
 }
 
 function stopTryOn() {
-  detectionRunning = false;
-  if (animFrame) cancelAnimationFrame(animFrame);
-  if (videoStream) videoStream.getTracks().forEach(t => t.stop());
-  document.getElementById('tryon-view').style.display = 'none';
-  document.getElementById('tryon-ui').style.display = 'none';
-  document.getElementById('launcher').style.display = 'block';
-  const canvas = document.getElementById('overlay-canvas');
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  if (raf) cancelAnimationFrame(raf);
+  if (stream) stream.getTracks().forEach(t=>t.stop());
+  stream=null; raf=null; lastFace=null; noFaceCount=0; manualMode=false;
+  document.getElementById('manual-hint').style.display='none';
+  document.getElementById('yrow').style.display='none';
+  show('screen-launch');
 }
 
-function takePic() {
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('overlay-canvas');
-  const snap = document.createElement('canvas');
-  snap.width = video.videoWidth;
-  snap.height = video.videoHeight;
-  const ctx = snap.getContext('2d');
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, -snap.width, 0);
-  ctx.restore();
-  ctx.drawImage(canvas, 0, 0);
-  const link = document.createElement('a');
-  link.download = 'aure-' + selectedModel + '.jpg';
-  link.href = snap.toDataURL('image/jpeg', 0.92);
-  link.click();
+function buy() {
+  const m = MODELS.find(x=>x.id===sel);
+  if (m) window.location.href = m.url;
 }
 
-function goToBuy() {
-  const model = MODELS.find(m => m.id === selectedModel);
-  if (model && model.url) window.location.href = model.url;
-}
-
-buildModelGrid();
+buildUI();
 </script>
 </body>
 </html>
