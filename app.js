@@ -39,9 +39,9 @@ const MODELOS = [
    TODOS los modelos por igual; los offsets por producto van en MODELOS.
    ------------------------------------------------------------------------- */
 const CAMARA_FOV_VERTICAL = 63;   // grados — FOV del entorno virtual de MediaPipe
-const ANCHO_BASE           = 0.62; // ancho de referencia del lente en espacio de cara
-const Y_BASE                = -0.015; // nudge vertical hacia el puente de la nariz
-const Z_BASE                = 0.02;   // nudge en profundidad (hacia la cámara)
+const ANCHO_BASE           = 140; // ancho de referencia del lente, en el espacio "milimétrico" del modelo canónico de MediaPipe
+const Y_BASE                = -4;  // nudge vertical hacia el puente de la nariz
+const Z_BASE                = 10;  // nudge en profundidad (hacia la cámara)
 
 /* -------------------------------------------------------------------------
    2) ESTADO GLOBAL
@@ -388,14 +388,20 @@ $('#closeBtn').onclick = () => {
    10) AJUSTE FINO (sliders) + copiar offsets calibrados
    ------------------------------------------------------------------------- */
 function sincronizarSliders() {
-  $('#sizeRange').value = 100;
+  $('#sizeRange').value = 0;
   $('#yRange').value = 0;
   $('#zRange').value = 0;
 }
 
-$('#sizeRange').oninput = e => { ajusteSesion.escala = e.target.value / 100; aplicarModeloAlMesh(modeloActivo); };
-$('#yRange').oninput    = e => { ajusteSesion.y = +e.target.value * 0.0006; aplicarModeloAlMesh(modeloActivo); };
-$('#zRange').oninput    = e => { ajusteSesion.z = +e.target.value * 0.0006; aplicarModeloAlMesh(modeloActivo); };
+// El slider de tamaño es exponencial (factor = 10^(valor/50)): en el centro
+// no cambia nada (x1), y en los extremos llega a x0.01 / x100. Así, sea cual
+// sea la unidad real de escala del modelo 3D de MediaPipe (no está
+// documentada con precisión), siempre hay margen de sobra para encontrar el
+// tamaño correcto sin quedarse corto — a diferencia de un rango lineal
+// chico, que puede no alcanzar si la estimación de partida está lejos.
+$('#sizeRange').oninput = e => { ajusteSesion.escala = Math.pow(10, e.target.value / 50); aplicarModeloAlMesh(modeloActivo); };
+$('#yRange').oninput    = e => { ajusteSesion.y = +e.target.value; aplicarModeloAlMesh(modeloActivo); };
+$('#zRange').oninput    = e => { ajusteSesion.z = +e.target.value; aplicarModeloAlMesh(modeloActivo); };
 
 $('#copyOffsets').onclick = async () => {
   const combinado = {
