@@ -65,6 +65,40 @@ solo ajustando en cámara y pegando el JSON al final.
 con fondo transparente (PNG), agregalo a la carpeta y sumá una entrada en
 `MODELOS` con `calibracion` en `{escala:1,x:0,y:0,z:0}` como punto de partida.
 
+### Modelos 3D reales (`.glb`) — para que se vea correcto en cualquier ángulo
+
+Con solo el PNG, el lente es un plano: se ve bien de frente pero "de canto"
+al girar mucho la cabeza (no tiene espesor de marco ni la patilla real). El
+motor ya soporta modelos 3D reales — apenas tengas un `.glb` de un producto:
+
+1. Subilo a la carpeta del repo (ej: `terra.glb`).
+2. En `MODELOS`, completá `modelo3D: 'terra.glb'` en la entrada de ese producto.
+3. Listo — el tamaño se auto-normaliza al cargar, así que `escala:1` ya
+   arranca razonable. Si el modelo no vino "mirando de frente", corregilo
+   con `rotX/rotY/rotZ` (en grados) dentro de `calibracion`.
+
+Los productos sin `modelo3D` siguen usando el PNG automáticamente — podés
+migrar el catálogo de a poco, modelo por modelo.
+
+**Cómo conseguir el `.glb` sin depender de un estudio de modelado 3D:**
+
+- **Escaneo con el celular (el camino más rápido y barato)**: apps como
+  [Polycam](https://poly.cam/) o Scaniverse (gratis, iOS) escanean un
+  objeto físico y exportan `.glb` directo. Si tenés el par físico en mano,
+  es cuestión de minutos por modelo — funciona mejor en modelos con iPhone
+  con LiDAR (Pro/Pro Max de los últimos años), pero el escaneo fotográfico
+  normal también sirve para un objeto chico y brilloso como un anteojo con
+  un poco de paciencia (varias fotos, buena luz, fondo mate).
+- **Freelancer de modelado 3D**: en Fiverr/Upwork, "3D model from photos"
+  o "eyewear 3D model" es un encargo común y relativamente barato por
+  producto si el escaneo no da buena calidad (vidrio/metal reflectivo
+  puede costarle al escáner).
+- **Generadores de imagen-a-3D por IA**: herramientas como Meshy o Tripo
+  generan un `.glb` a partir de fotos del producto. Es la opción más
+  rápida de todas, pero la calidad geométrica es variable — conviene
+  revisar cada resultado antes de subirlo (a veces "alucinan" detalles
+  que no están en la foto real).
+
 > Nota sobre la escala: MediaPipe no publica una unidad absoluta ("cm por
 > unidad 3D"), así que los valores base (`ANCHO_BASE`, `Y_BASE`, `Z_BASE` al
 > principio de `app.js`) son un punto de partida calibrado a ojo. Si ves que

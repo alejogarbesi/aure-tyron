@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js';
 
 /* -------------------------------------------------------------------------
    0) CATÁLOGO DE MODELOS
@@ -20,14 +21,23 @@ import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
    copian con el botón "Copiar" para pegarlos acá una vez calibrados.
    sku es opcional: si Tiendanube te manda el producto activo por
    postMessage, se usa para preseleccionar el modelo (ver sección 9).
+
+   modelo3D (opcional): ruta a un archivo .glb con la geometría real del
+   anteojo. Si está presente, se usa ESE modelo 3D (se ve correcto desde
+   cualquier ángulo). Si está vacío, se usa el PNG plano como fallback
+   (funciona, pero se nota "recorte" al girar mucho la cabeza). El tamaño
+   se auto-normaliza al cargar el .glb, así que "escala:1" da un punto de
+   partida razonable sin tener que adivinar la unidad del archivo.
+   rotX/rotY/rotZ (grados): corrige la orientación si el .glb no viene
+   mirando "de frente" — no hace falta tocar esto con el PNG.
    ------------------------------------------------------------------------- */
 const MODELOS = [
-  { id: 'terra',   nombre: 'Terra',   img: 'terra.png',   sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
-  { id: 'noir',    nombre: 'Noir',    img: 'noir.png',    sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
-  { id: 'lumen',   nombre: 'Lumen',   img: 'lumen.png',   sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
-  { id: 'eclipse', nombre: 'Eclipse', img: 'eclipse.png', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
-  { id: 'sol',     nombre: 'Sol',     img: 'sol.png',     sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
-  { id: 'dusk',    nombre: 'Dusk',    img: 'dusk.png',    sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0 } },
+  { id: 'terra',   nombre: 'Terra',   img: 'terra.png',   modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
+  { id: 'noir',    nombre: 'Noir',    img: 'noir.png',    modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
+  { id: 'lumen',   nombre: 'Lumen',   img: 'lumen.png',   modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
+  { id: 'eclipse', nombre: 'Eclipse', img: 'eclipse.png', modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
+  { id: 'sol',     nombre: 'Sol',     img: 'sol.png',     modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
+  { id: 'dusk',    nombre: 'Dusk',    img: 'dusk.png',    modelo3D: '', sku: '', calibracion: { escala: 1.00, x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0 } },
 ];
 
 /* -------------------------------------------------------------------------
@@ -58,8 +68,9 @@ const glCanvas = $('#glCanvas');
 
 let modeloActivo = MODELOS[0];
 let faceLandmarker = null;
-let renderer, scene, camera, faceAnchor, glassesMesh;
+let renderer, scene, camera, faceAnchor, contenidoActivo, glassesMesh;
 let texturas = {};              // id -> { texture, aspect, ready }
+let modelos3D = {};             // id -> { escena, escalaAuto, ready }
 let rafId = null;
 let lastVideoTime = -1;
 let framesSinCara = 0;
@@ -107,11 +118,15 @@ function initEscena3D() {
   ocluso.renderOrder = 0;
   faceAnchor.add(ocluso);
 
+  // contenedor intercambiable: cuelga acá el modelo 3D real (.glb) si el
+  // producto tiene uno, o si no, el plano con el PNG recortado (fallback)
+  contenidoActivo = new THREE.Object3D();
+  contenidoActivo.renderOrder = 1;
+  faceAnchor.add(contenidoActivo);
+
   const geo = new THREE.PlaneGeometry(1, 1);
   const mat = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.35, metalness: 0.05 });
   glassesMesh = new THREE.Mesh(geo, mat);
-  glassesMesh.renderOrder = 1;
-  faceAnchor.add(glassesMesh);
 }
 
 function ajustarViewport(w, h) {
@@ -123,7 +138,7 @@ function ajustarViewport(w, h) {
 }
 
 /* -------------------------------------------------------------------------
-   4) TEXTURAS DE LOS MODELOS
+   4) ASSETS DE LOS MODELOS (PNG plano y, si existe, .glb real)
    ------------------------------------------------------------------------- */
 function precargarTexturas() {
   const loader = new THREE.TextureLoader();
@@ -135,7 +150,7 @@ function precargarTexturas() {
         tex.colorSpace = THREE.SRGBColorSpace;
         const img = tex.image;
         texturas[m.id] = { texture: tex, aspect: img.naturalHeight / img.naturalWidth, ready: true };
-        if (m.id === modeloActivo.id) aplicarModeloAlMesh(m);
+        if (m.id === modeloActivo.id) aplicarModelo(m);
       },
       undefined,
       () => { texturas[m.id].ready = false; }
@@ -143,18 +158,61 @@ function precargarTexturas() {
   });
 }
 
-function aplicarModeloAlMesh(m) {
-  const t = texturas[m.id];
-  if (!t || !t.ready) return;
-  glassesMesh.material.map = t.texture;
-  glassesMesh.material.needsUpdate = true;
-  const ancho = ANCHO_BASE * m.calibracion.escala * ajusteSesion.escala;
-  const alto = ancho * t.aspect;
-  glassesMesh.scale.set(ancho, alto, 1);
-  glassesMesh.position.set(
-    m.calibracion.x,
-    Y_BASE + m.calibracion.y + ajusteSesion.y,
-    Z_BASE + m.calibracion.z + ajusteSesion.z
+function precargarModelos3D() {
+  const loader = new GLTFLoader();
+  MODELOS.forEach(m => {
+    if (!m.modelo3D) return;
+    modelos3D[m.id] = { escena: null, escalaAuto: 1, ready: false };
+    loader.load(
+      m.modelo3D,
+      gltf => {
+        const escena = gltf.scene;
+        // auto-normaliza el ancho del modelo al mismo sistema de unidades
+        // que ya usa el PNG plano (ANCHO_BASE), para que "escala:1" quede
+        // parecido sea cual sea la unidad en la que vino exportado el .glb
+        const bbox = new THREE.Box3().setFromObject(escena);
+        const anchoReal = Math.max(bbox.max.x - bbox.min.x, 0.001);
+        modelos3D[m.id] = { escena, escalaAuto: ANCHO_BASE / anchoReal, ready: true };
+        if (m.id === modeloActivo.id) aplicarModelo(m);
+      },
+      undefined,
+      () => { modelos3D[m.id].ready = false; } // sin .glb todavía: sigue usando el PNG
+    );
+  });
+}
+
+function aplicarModelo(m) {
+  const modelo3D = modelos3D[m.id];
+  const usar3D = modelo3D && modelo3D.ready;
+
+  contenidoActivo.clear();
+  contenidoActivo.add(usar3D ? modelo3D.escena : glassesMesh);
+
+  const c = m.calibracion;
+  let ancho, alto = 1;
+
+  if (usar3D) {
+    ancho = modelo3D.escalaAuto * c.escala * ajusteSesion.escala;
+    alto = ancho;
+  } else {
+    const t = texturas[m.id];
+    if (!t || !t.ready) return;
+    glassesMesh.material.map = t.texture;
+    glassesMesh.material.needsUpdate = true;
+    ancho = ANCHO_BASE * c.escala * ajusteSesion.escala;
+    alto = ancho * t.aspect;
+  }
+
+  contenidoActivo.scale.set(ancho, usar3D ? ancho : alto, ancho);
+  contenidoActivo.position.set(
+    c.x,
+    Y_BASE + c.y + ajusteSesion.y,
+    Z_BASE + c.z + ajusteSesion.z
+  );
+  contenidoActivo.rotation.set(
+    THREE.MathUtils.degToRad(c.rotX),
+    THREE.MathUtils.degToRad(c.rotY),
+    THREE.MathUtils.degToRad(c.rotZ)
   );
 }
 
@@ -179,7 +237,7 @@ function seleccionarModelo(m) {
   ajusteSesion = { escala: 1, y: 0, z: 0 };
   sincronizarSliders();
   renderChips();
-  aplicarModeloAlMesh(m);
+  aplicarModelo(m);
 }
 
 function seleccionarModeloPorSkuOId(valor) {
@@ -423,16 +481,18 @@ function sincronizarSliders() {
 // documentada con precisión), siempre hay margen de sobra para encontrar el
 // tamaño correcto sin quedarse corto — a diferencia de un rango lineal
 // chico, que puede no alcanzar si la estimación de partida está lejos.
-$('#sizeRange').oninput = e => { ajusteSesion.escala = Math.pow(10, e.target.value / 50); aplicarModeloAlMesh(modeloActivo); };
-$('#yRange').oninput    = e => { ajusteSesion.y = +e.target.value; aplicarModeloAlMesh(modeloActivo); };
-$('#zRange').oninput    = e => { ajusteSesion.z = +e.target.value; aplicarModeloAlMesh(modeloActivo); };
+$('#sizeRange').oninput = e => { ajusteSesion.escala = Math.pow(10, e.target.value / 50); aplicarModelo(modeloActivo); };
+$('#yRange').oninput    = e => { ajusteSesion.y = +e.target.value; aplicarModelo(modeloActivo); };
+$('#zRange').oninput    = e => { ajusteSesion.z = +e.target.value; aplicarModelo(modeloActivo); };
 
 $('#copyOffsets').onclick = async () => {
+  const c = modeloActivo.calibracion;
   const combinado = {
-    escala: +(modeloActivo.calibracion.escala * ajusteSesion.escala).toFixed(3),
-    x: +(modeloActivo.calibracion.x).toFixed(4),
-    y: +(modeloActivo.calibracion.y + ajusteSesion.y).toFixed(4),
-    z: +(modeloActivo.calibracion.z + ajusteSesion.z).toFixed(4),
+    escala: +(c.escala * ajusteSesion.escala).toFixed(3),
+    x: +(c.x).toFixed(4),
+    y: +(c.y + ajusteSesion.y).toFixed(4),
+    z: +(c.z + ajusteSesion.z).toFixed(4),
+    rotX: c.rotX, rotY: c.rotY, rotZ: c.rotZ,
   };
   const texto = JSON.stringify(combinado);
   try {
@@ -465,6 +525,7 @@ window.addEventListener('resize', () => {
 
 initEscena3D();
 precargarTexturas();
+precargarModelos3D();
 renderChips();
 
 if (EMBEBIDO) {
