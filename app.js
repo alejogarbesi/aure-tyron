@@ -40,8 +40,14 @@ const MODELOS = [
    ------------------------------------------------------------------------- */
 const CAMARA_FOV_VERTICAL = 63;   // grados — FOV del entorno virtual de MediaPipe
 const ANCHO_BASE           = 140; // ancho de referencia del lente, en el espacio "milimétrico" del modelo canónico de MediaPipe
-const Y_BASE                = -4;  // nudge vertical hacia el puente de la nariz
+const Y_BASE                = -46; // nudge vertical hacia el puente de la nariz (el ancla de MediaPipe queda alta, cerca de la frente)
 const Z_BASE                = 10;  // nudge en profundidad (hacia la cámara)
+
+// Ocluye lo que quedaría "detrás" de la cabeza (ej: la patilla lejana al
+// girar la cara) para que el lente no se vea flotando siempre por encima
+// de todo. Es una elipsoide aproximada, invisible, que solo escribe
+// profundidad — no hace falta que calce perfecto con la cabeza real.
+const CABEZA_OCLUSOR = { radioX: 78, radioY: 95, radioZ: 90, offsetY: -35, offsetZ: 55 };
 
 /* -------------------------------------------------------------------------
    2) ESTADO GLOBAL
@@ -77,14 +83,32 @@ function initEscena3D() {
   renderer = new THREE.WebGLRenderer({ canvas: glCanvas, alpha: true, antialias: true });
   renderer.setClearColor(0x000000, 0);
 
+  // luz suave para que el lente reaccione a la pose (no quede "plano" y
+  // parejo como una calcomanía) — mejora perceptible sin pedir assets nuevos
+  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+  const luzDir = new THREE.DirectionalLight(0xffffff, 0.55);
+  luzDir.position.set(0.4, 1, 1);
+  scene.add(luzDir);
+
   // el grupo recibe la matriz de pose facial completa (posición+rotación+escala)
   faceAnchor = new THREE.Object3D();
   faceAnchor.matrixAutoUpdate = false;
   faceAnchor.visible = false;
   scene.add(faceAnchor);
 
+  // oclusor de cabeza: invisible (no pinta color), solo escribe profundidad,
+  // para que la patilla/el marco se escondan correctamente detrás de la
+  // cabeza real al girar, en vez de flotar siempre por encima de todo.
+  const ocGeo = new THREE.SphereGeometry(1, 24, 18);
+  const ocMat = new THREE.MeshBasicMaterial({ colorWrite: false });
+  const ocluso = new THREE.Mesh(ocGeo, ocMat);
+  ocluso.scale.set(CABEZA_OCLUSOR.radioX, CABEZA_OCLUSOR.radioY, CABEZA_OCLUSOR.radioZ);
+  ocluso.position.set(0, CABEZA_OCLUSOR.offsetY, CABEZA_OCLUSOR.offsetZ);
+  ocluso.renderOrder = 0;
+  faceAnchor.add(ocluso);
+
   const geo = new THREE.PlaneGeometry(1, 1);
-  const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+  const mat = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.35, metalness: 0.05 });
   glassesMesh = new THREE.Mesh(geo, mat);
   glassesMesh.renderOrder = 1;
   faceAnchor.add(glassesMesh);
