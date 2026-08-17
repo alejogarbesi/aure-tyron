@@ -1,0 +1,68 @@
+<!--
+  AURÉ · Snippet de embed para Tiendanube
+  ----------------------------------------
+  Pegá este bloque en el editor de HTML de la página de producto (o en un
+  bloque de "HTML personalizado" si tu plan lo permite). Abre el probador
+  como un overlay de pantalla completa, igual que hacen Infinit/Camweara,
+  para no romper el layout del tema.
+
+  Reemplazá AURE_VTO_URL por la URL donde deployaste index.html
+  (ej: https://tu-usuario.github.io/aure-tyron/).
+
+  Si querés preseleccionar el modelo según el producto que se está viendo,
+  completá el campo "sku" de ese modelo en app.js (MODELOS) para que
+  coincida con el SKU/handle de Tiendanube, y este snippet se lo va a
+  mandar automáticamente al widget por postMessage.
+-->
+
+<button id="aure-vto-btn" style="
+  display:flex; align-items:center; gap:8px;
+  background:#0A0A0A; color:#F5F1E8; border:1px solid #C9A961;
+  padding:12px 20px; font-size:13px; letter-spacing:.08em; text-transform:uppercase;
+  cursor:pointer; border-radius:2px; font-family:inherit;
+">
+  Probador Virtual
+</button>
+
+<div id="aure-vto-overlay" style="
+  display:none; position:fixed; inset:0; z-index:999999; background:#0A0A0A;
+">
+  <iframe
+    id="aure-vto-frame"
+    src="AURE_VTO_URL/?embed=1"
+    allow="camera; fullscreen; clipboard-write"
+    style="width:100%; height:100%; border:0;"
+  ></iframe>
+</div>
+
+<script>
+(function () {
+  var SKU_PRODUCTO_ACTUAL = ''; // opcional: completar con el SKU de Tiendanube de esta página
+
+  var btn = document.getElementById('aure-vto-btn');
+  var overlay = document.getElementById('aure-vto-overlay');
+  var frame = document.getElementById('aure-vto-frame');
+
+  btn.addEventListener('click', function () {
+    overlay.style.display = 'block';
+    document.documentElement.style.overflow = 'hidden';
+  });
+
+  window.addEventListener('message', function (ev) {
+    var data = ev.data;
+    if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'aure-vto:ready' && SKU_PRODUCTO_ACTUAL) {
+      frame.contentWindow.postMessage({ type: 'aure-vto:select-model', sku: SKU_PRODUCTO_ACTUAL }, '*');
+    }
+    if (data.type === 'aure-vto:close') {
+      overlay.style.display = 'none';
+      document.documentElement.style.overflow = '';
+    }
+    if (data.type === 'aure-vto:captured') {
+      // opcional: hacer algo con la foto (data.dataUrl) o el modelo (data.modelId)
+      // por ejemplo, trackear un evento de analytics acá.
+    }
+  });
+})();
+</script>

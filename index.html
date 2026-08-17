@@ -5,275 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>AURÉ · Probador Virtual</title>
 
-<!-- Tipografías de marca -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
 
-<style>
-  :root {
-    --negro:    #0A0A0A;
-    --carbon:   #141414;
-    --panel:    rgba(20,20,20,0.72);
-    --oro:      #C9A961;
-    --oro-soft: #d8bd7e;
-    --hueso:    #F5F1E8;
-    --gris:     #8a8580;
-    --linea:    rgba(201,169,97,0.22);
+<!-- Mapea los imports "desnudos" a CDN, así el JS de abajo no necesita build step -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
+    "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"
   }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-  html, body {
-    height: 100%;
-    background: var(--negro);
-    color: var(--hueso);
-    font-family: 'Inter', system-ui, sans-serif;
-    overflow: hidden;
-  }
-
-  /* ---------- Escenario de cámara ---------- */
-  #stage {
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(circle at 50% 30%, #1a1a1a 0%, #0a0a0a 70%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* video y overlay espejados para efecto selfie */
-  #cam, #overlay {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%) scaleX(-1);
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: cover;
-  }
-  #cam { width: auto; height: 100%; }
-  #overlay { pointer-events: none; }
-
-  /* ---------- Marca ---------- */
-  #brand {
-    position: fixed;
-    top: env(safe-area-inset-top, 18px);
-    left: 0; right: 0;
-    margin-top: 18px;
-    text-align: center;
-    z-index: 20;
-    pointer-events: none;
-  }
-  #brand .word {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 30px;
-    letter-spacing: 0.42em;
-    font-weight: 500;
-    text-indent: 0.42em;
-    color: var(--hueso);
-  }
-  #brand .sub {
-    margin-top: 2px;
-    font-size: 9px;
-    letter-spacing: 0.38em;
-    text-transform: uppercase;
-    color: var(--oro);
-    font-weight: 500;
-  }
-
-  /* ---------- Controles inferiores ---------- */
-  #dock {
-    position: fixed;
-    left: 0; right: 0;
-    bottom: 0;
-    padding: 18px 0 calc(env(safe-area-inset-bottom, 16px) + 16px);
-    background: linear-gradient(to top, rgba(10,10,10,0.92) 35%, transparent);
-    z-index: 20;
-  }
-
-  /* selector de modelos */
-  #models {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 0 20px 14px;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-  }
-  #models::-webkit-scrollbar { display: none; }
-
-  .chip {
-    flex: 0 0 auto;
-    scroll-snap-align: center;
-    min-width: 78px;
-    padding: 9px 4px 8px;
-    border: 1px solid var(--linea);
-    border-radius: 12px;
-    background: var(--panel);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .25s, transform .15s, background .25s;
-  }
-  .chip:active { transform: scale(0.95); }
-  .chip.active {
-    border-color: var(--oro);
-    background: rgba(201,169,97,0.10);
-  }
-  .chip .swatch {
-    width: 100%; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 6px;
-  }
-  .chip .swatch svg { width: 52px; height: 22px; }
-  .chip .name {
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--gris);
-  }
-  .chip.active .name { color: var(--oro-soft); }
-
-  /* fila de acciones */
-  #actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 28px;
-  }
-  .icon-btn {
-    width: 44px; height: 44px;
-    border: 1px solid var(--linea);
-    border-radius: 50%;
-    background: var(--panel);
-    backdrop-filter: blur(14px);
-    color: var(--hueso);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: transform .15s, border-color .25s;
-  }
-  .icon-btn:active { transform: scale(0.9); }
-  .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; }
-
-  #shutter {
-    width: 68px; height: 68px;
-    border-radius: 50%;
-    border: 2px solid var(--oro);
-    background: transparent;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform .12s;
-  }
-  #shutter:active { transform: scale(0.92); }
-  #shutter .core {
-    width: 54px; height: 54px;
-    border-radius: 50%;
-    background: var(--hueso);
-    transition: background .2s;
-  }
-  #shutter:active .core { background: var(--oro-soft); }
-
-  /* ---------- Ajuste fino ---------- */
-  #tune {
-    position: fixed;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex; flex-direction: column; gap: 22px;
-    z-index: 20;
-    background: var(--panel);
-    backdrop-filter: blur(14px);
-    border: 1px solid var(--linea);
-    border-radius: 16px;
-    padding: 18px 12px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .3s;
-  }
-  #tune.open { opacity: 1; pointer-events: auto; }
-  .slider-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .slider-group label {
-    font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--oro);
-  }
-  /* sliders verticales */
-  input[type=range] {
-    -webkit-appearance: none; appearance: none;
-    width: 110px; height: 2px;
-    background: var(--linea);
-    transform: rotate(-90deg);
-    margin: 52px 0;
-    outline: none;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 16px; height: 16px; border-radius: 50%;
-    background: var(--oro); cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(201,169,97,0.18);
-  }
-  input[type=range]::-moz-range-thumb {
-    width: 16px; height: 16px; border-radius: 50%;
-    background: var(--oro); border: none; cursor: pointer;
-  }
-
-  /* ---------- Overlays de estado ---------- */
-  .veil {
-    position: fixed; inset: 0; z-index: 40;
-    background: var(--negro);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    text-align: center; padding: 32px;
-    transition: opacity .5s;
-  }
-  .veil.hidden { opacity: 0; pointer-events: none; }
-  .veil .word {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 40px; letter-spacing: 0.4em; text-indent: 0.4em;
-    margin-bottom: 6px;
-  }
-  .veil .tag {
-    font-size: 10px; letter-spacing: 0.36em; text-transform: uppercase;
-    color: var(--oro); margin-bottom: 40px;
-  }
-  .veil p { color: var(--gris); font-weight: 300; max-width: 320px; line-height: 1.6; font-size: 14px; }
-  .veil .cta {
-    margin-top: 32px;
-    padding: 14px 38px;
-    border: 1px solid var(--oro);
-    background: transparent; color: var(--hueso);
-    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
-    cursor: pointer; border-radius: 2px;
-    transition: background .25s, color .25s;
-  }
-  .veil .cta:hover { background: var(--oro); color: var(--negro); }
-
-  .dot-loader { display: flex; gap: 8px; margin-bottom: 36px; }
-  .dot-loader span {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--oro);
-    animation: pulse 1.2s infinite ease-in-out;
-  }
-  .dot-loader span:nth-child(2) { animation-delay: .2s; }
-  .dot-loader span:nth-child(3) { animation-delay: .4s; }
-  @keyframes pulse { 0%,100%{opacity:.25;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
-
-  /* flash de captura */
-  #flash {
-    position: fixed; inset: 0; background: #fff; z-index: 50;
-    opacity: 0; pointer-events: none;
-  }
-  #flash.go { animation: flash .35s ease-out; }
-  @keyframes flash { 0%{opacity:.85} 100%{opacity:0} }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
-  }
-</style>
+}
+</script>
 </head>
 <body>
 
   <div id="stage">
-    <video id="cam" playsinline autoplay muted></video>
-    <canvas id="overlay"></canvas>
+    <div id="mirror">
+      <video id="cam" playsinline autoplay muted></video>
+      <canvas id="glCanvas"></canvas>
+    </div>
   </div>
 
   <header id="brand">
@@ -281,16 +34,27 @@
     <div class="sub">Probador Virtual</div>
   </header>
 
-  <!-- Ajuste fino (tamaño / altura) -->
+  <button id="closeBtn" title="Cerrar">
+    <svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+  </button>
+
+  <div id="faceHint">Centrá tu rostro en cámara</div>
+
+  <!-- Ajuste fino por modelo (tamaño / altura / profundidad) -->
   <aside id="tune">
     <div class="slider-group">
-      <input id="sizeRange" type="range" min="70" max="145" value="100" />
+      <input id="sizeRange" type="range" min="60" max="160" value="100" />
       <label>Tamaño</label>
     </div>
     <div class="slider-group">
       <input id="yRange" type="range" min="-50" max="50" value="0" />
       <label>Altura</label>
     </div>
+    <div class="slider-group">
+      <input id="zRange" type="range" min="-50" max="50" value="0" />
+      <label>Profund.</label>
+    </div>
+    <button id="copyOffsets" title="Copiar offsets del modelo activo">Copiar</button>
   </aside>
 
   <!-- Dock inferior -->
@@ -301,8 +65,8 @@
         <svg viewBox="0 0 24 24"><line x1="4" y1="8" x2="20" y2="8"/><circle cx="9" cy="8" r="2.5"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="15" cy="16" r="2.5"/></svg>
       </button>
       <button id="shutter" title="Sacar foto"><span class="core"></span></button>
-      <button class="icon-btn" id="dlBtn" title="Descargar última foto" style="opacity:.35;pointer-events:none">
-        <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+      <button class="icon-btn" id="shareBtn" title="Compartir / descargar" disabled>
+        <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><line x1="8" y1="10.8" x2="16" y2="7"/><line x1="8" y1="13.2" x2="16" y2="17"/></svg>
       </button>
     </div>
   </div>
@@ -329,356 +93,8 @@
   </div>
 
   <div id="flash"></div>
+  <div id="toast"></div>
 
-<!-- MediaPipe Face Mesh -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-
-<script>
-/* =========================================================================
-   AURÉ · Probador Virtual
-   Equivalente funcional a TINT/Banuba con MediaPipe Face Mesh.
-   - Detecta 468 landmarks faciales en tiempo real
-   - Calcula posición, escala, inclinación (roll) y giro (yaw) de la cara
-   - Encastra el modelo de anteojo sobre los ojos
-   ========================================================================= */
-
-/* -------------------------------------------------------------------------
-   1) CATÁLOGO DE MODELOS
-   Poné tus PNGs con fondo transparente en una carpeta /assets y referencialos
-   acá en "img". El PNG ideal: anteojo de frente, recortado justo, centrado,
-   relación de aspecto real. Mientras no haya PNG, se dibuja un vector de
-   respaldo (fallback) para que puedas probar al toque.
-   ------------------------------------------------------------------------- */
-const MODELOS = [
-  { id:'terra',   nombre:'Terra',   img:'terra.png',   tinte:'#8a6a3a', lente:'rgba(120,90,50,0.42)' },
-  { id:'noir',    nombre:'Noir',    img:'noir.png',    tinte:'#111111', lente:'rgba(8,8,8,0.62)'    },
-  { id:'lumen',   nombre:'Lumen',   img:'lumen.png',   tinte:'#b59f8a', lente:'rgba(120,110,150,0.40)'},
-  { id:'eclipse', nombre:'Eclipse', img:'eclipse.png', tinte:'#3a2418', lente:'rgba(20,20,30,0.60)' },
-  { id:'sol',     nombre:'Sol',     img:'sol.png',     tinte:'#c9a961', lente:'rgba(90,100,70,0.45)'},
-  { id:'dusk',    nombre:'Dusk',    img:'dusk.png',    tinte:'#7a3f2e', lente:'rgba(200,110,80,0.45)' },
-];
-
-/* -------------------------------------------------------------------------
-   2) ESTADO GLOBAL
-   ------------------------------------------------------------------------- */
-const $ = s => document.querySelector(s);
-const video   = $('#cam');
-const overlay = $('#overlay');
-const ctx     = overlay.getContext('2d');
-
-let modeloActivo = MODELOS[0];
-let imgCache = {};          // id -> {ready, el}
-let ultimaFoto = null;      // dataURL de la última captura
-let faceMesh, camera;
-let ajusteTamano = 1.0;     // multiplicador slider
-let ajusteY = 0;            // offset vertical (fracción del ancho de cara)
-let ultimosLandmarks = null;
-
-/* -------------------------------------------------------------------------
-   3) PRECARGA DE IMÁGENES (con fallback silencioso)
-   ------------------------------------------------------------------------- */
-function precargarImagenes() {
-  MODELOS.forEach(m => {
-    const el = new Image();
-    el.crossOrigin = 'anonymous';
-    imgCache[m.id] = { ready:false, el, aspect: 0.42 };
-    el.onload = () => {
-      imgCache[m.id].ready = true;
-      imgCache[m.id].aspect = el.naturalHeight / el.naturalWidth;
-    };
-    el.onerror = () => { imgCache[m.id].ready = false; }; // usa vector fallback
-    el.src = m.img;
-  });
-}
-
-/* -------------------------------------------------------------------------
-   4) UI: chips de modelos
-   ------------------------------------------------------------------------- */
-function miniGlasses(color) {
-  // SVG de muestra para el chip
-  return `<svg viewBox="0 0 60 26">
-    <g fill="${color}" stroke="${color}" stroke-width="1.2">
-      <rect x="3"  y="6" width="22" height="14" rx="6" fill="${color}" fill-opacity="0.5"/>
-      <rect x="35" y="6" width="22" height="14" rx="6" fill="${color}" fill-opacity="0.5"/>
-      <line x1="25" y1="10" x2="35" y2="10"/>
-    </g></svg>`;
-}
-
-function renderChips() {
-  const cont = $('#models');
-  cont.innerHTML = '';
-  MODELOS.forEach(m => {
-    const chip = document.createElement('div');
-    chip.className = 'chip' + (m.id === modeloActivo.id ? ' active' : '');
-    chip.innerHTML = `<div class="swatch">${miniGlasses(m.tinte === '#111111' ? '#888' : m.tinte)}</div>
-                      <div class="name">${m.nombre}</div>`;
-    chip.onclick = () => {
-      modeloActivo = m;
-      renderChips();
-    };
-    cont.appendChild(chip);
-  });
-}
-
-/* -------------------------------------------------------------------------
-   5) MATEMÁTICA DE ENCASTRE
-   Índices de landmarks (MediaPipe Face Mesh, 468 puntos):
-     33  -> esquina externa ojo izquierdo (en imagen)
-     263 -> esquina externa ojo derecho
-     133 / 362 -> esquinas internas
-     234 -> borde izquierdo de la cara (sien)
-     454 -> borde derecho de la cara (sien)
-     168 -> puente de la nariz (entre cejas)
-     6   -> puente medio
-     1   -> punta de la nariz
-   ------------------------------------------------------------------------- */
-function calcularTransform(lm, W, H) {
-  const P = i => ({ x: lm[i].x * W, y: lm[i].y * H });
-
-  const ojoIzq  = P(33);
-  const ojoDer  = P(263);
-  const sienIzq = P(234);
-  const sienDer = P(454);
-  const puente  = P(168);
-  const nariz   = P(1);
-
-  // Centro: punto medio entre ojos, llevado al puente
-  const cx = (ojoIzq.x + ojoDer.x) / 2;
-  const cy = (ojoIzq.y + ojoDer.y) / 2;
-
-  // Inclinación (roll): ángulo de la línea entre ojos
-  const roll = Math.atan2(ojoDer.y - ojoIzq.y, ojoDer.x - ojoIzq.x);
-
-  // Ancho de cara entre sienes -> ancho base del anteojo
-  const anchoCara = Math.hypot(sienDer.x - sienIzq.x, sienDer.y - sienIzq.y);
-
-  // Giro (yaw): qué tan centrada está la nariz respecto a las sienes
-  const ratio = (nariz.x - sienIzq.x) / (sienDer.x - sienIzq.x); // 0.5 = de frente
-  const yaw = (ratio - 0.5) * 2; // -1 .. 1 aprox
-
-  return { cx, cy, roll, anchoCara, yaw, puente };
-}
-
-/* -------------------------------------------------------------------------
-   6) DIBUJO DEL ANTEOJO SOBRE EL FRAME
-   ------------------------------------------------------------------------- */
-function dibujarAnteojo(t) {
-  const W = overlay.width;
-  // ancho objetivo del anteojo ≈ ancho de cara * factor * slider
-  const ancho = t.anchoCara * 0.96 * ajusteTamano;
-  const cache = imgCache[modeloActivo.id];
-  const aspect = cache ? cache.aspect : 0.42;
-  const alto = ancho * aspect;
-
-  // posición vertical: levemente por debajo del puente + ajuste manual
-  const px = t.cx;
-  const py = t.cy + t.anchoCara * (0.02 + ajusteY * 0.004);
-
-  ctx.save();
-  ctx.translate(px, py);
-  ctx.rotate(t.roll);
-
-  // efecto de giro (yaw): comprime horizontalmente y desplaza
-  const squash = 1 - Math.min(Math.abs(t.yaw), 0.6) * 0.35;
-  ctx.translate(t.yaw * ancho * 0.06, 0);
-  ctx.scale(squash, 1);
-
-  if (cache && cache.ready) {
-    ctx.drawImage(cache.el, -ancho/2, -alto/2, ancho, alto);
-  } else {
-    dibujarVectorFallback(ancho, modeloActivo);
-  }
-  ctx.restore();
-}
-
-/* Anteojo vectorial de respaldo (cuando no hay PNG) */
-function dibujarVectorFallback(ancho, m) {
-  const w = ancho;
-  const lenteW = w * 0.40;
-  const lenteH = lenteW * 0.62;
-  const gap = w * 0.06;
-  const r = lenteH * 0.45;
-
-  ctx.lineWidth = Math.max(2, w * 0.018);
-  ctx.strokeStyle = m.tinte;
-  ctx.fillStyle = m.lente;
-  ctx.lineJoin = 'round';
-
-  // lente izquierda
-  redondeado(-w/2, -lenteH/2, lenteW, lenteH, r);
-  ctx.fill(); ctx.stroke();
-  // lente derecha
-  redondeado(gap/2 + lenteW*0.0, -lenteH/2, lenteW, lenteH, r);
-  // (recolocada simétricamente)
-  ctx.beginPath();
-  redondeadoPath(w/2 - lenteW, -lenteH/2, lenteW, lenteH, r);
-  ctx.fill(); ctx.stroke();
-
-  // puente
-  ctx.beginPath();
-  ctx.moveTo(-w/2 + lenteW, -lenteH*0.15);
-  ctx.lineTo(w/2 - lenteW, -lenteH*0.15);
-  ctx.stroke();
-
-  // patillas (insinuadas)
-  ctx.beginPath();
-  ctx.moveTo(-w/2, -lenteH*0.1); ctx.lineTo(-w/2 - w*0.06, -lenteH*0.2);
-  ctx.moveTo(w/2, -lenteH*0.1);  ctx.lineTo(w/2 + w*0.06, -lenteH*0.2);
-  ctx.stroke();
-}
-function redondeado(x,y,w,h,r){ ctx.beginPath(); redondeadoPath(x,y,w,h,r); }
-function redondeadoPath(x,y,w,h,r){
-  ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);
-  ctx.closePath();
-}
-
-/* -------------------------------------------------------------------------
-   7) LOOP: resultados de MediaPipe -> render
-   ------------------------------------------------------------------------- */
-function onResults(res) {
-  // ajustar canvas al frame
-  if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-    overlay.width  = video.videoWidth;
-    overlay.height = video.videoHeight;
-  }
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-  if (res.multiFaceLandmarks && res.multiFaceLandmarks.length) {
-    ultimosLandmarks = res.multiFaceLandmarks[0];
-    const t = calcularTransform(ultimosLandmarks, overlay.width, overlay.height);
-    dibujarAnteojo(t);
-  } else {
-    ultimosLandmarks = null;
-  }
-}
-
-/* -------------------------------------------------------------------------
-   8) ARRANQUE DE CÁMARA + MEDIAPIPE
-   ------------------------------------------------------------------------- */
-async function iniciar() {
-  mostrar('#loading'); $('#loadingMsg').textContent = 'Encendiendo la cámara…';
-  try {
-    if (typeof FaceMesh === 'undefined') {
-      throw new Error('No se pudo cargar el motor de detección. Revisá tu conexión.');
-    }
-
-    faceMesh = new FaceMesh({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
-    });
-    faceMesh.setOptions({
-      maxNumFaces: 1,
-      refineLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-    faceMesh.onResults(onResults);
-
-    $('#loadingMsg').textContent = 'Cargando modelos…';
-
-    camera = new Camera(video, {
-      onFrame: async () => { await faceMesh.send({ image: video }); },
-      width: 1280,
-      height: 720,
-      facingMode: 'user',
-    });
-    await camera.start();
-
-    // esperar primer frame válido
-    await esperarVideo();
-    ocultarTodos();
-  } catch (e) {
-    fallar(traducirError(e));
-  }
-}
-
-function esperarVideo() {
-  return new Promise(res => {
-    const check = () => {
-      if (video.videoWidth > 0) res();
-      else requestAnimationFrame(check);
-    };
-    check();
-  });
-}
-
-function traducirError(e) {
-  const msg = (e && e.message) || '';
-  if (/Permission|NotAllowed|denied/i.test(msg))
-    return 'No pudimos acceder a la cámara. Habilitá el permiso en tu navegador y reintentá.';
-  if (/NotFound|Requested device/i.test(msg))
-    return 'No se detectó ninguna cámara en este dispositivo.';
-  if (/motor de detección/i.test(msg))
-    return msg;
-  return 'No pudimos iniciar el probador. ' + (msg || 'Probá de nuevo.');
-}
-
-/* -------------------------------------------------------------------------
-   9) CAPTURA DE FOTO (video + overlay, respetando espejo)
-   ------------------------------------------------------------------------- */
-function capturar() {
-  if (!video.videoWidth) return;
-  $('#flash').classList.remove('go');
-  void $('#flash').offsetWidth;
-  $('#flash').classList.add('go');
-
-  const W = video.videoWidth, H = video.videoHeight;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const cc = c.getContext('2d');
-
-  // espejar para que coincida con lo que ve el usuario
-  cc.translate(W, 0);
-  cc.scale(-1, 1);
-  cc.drawImage(video, 0, 0, W, H);
-  cc.drawImage(overlay, 0, 0, W, H);
-  cc.setTransform(1, 0, 0, 1, 0, 0);
-
-  // marca de agua sutil
-  cc.font = `500 ${Math.round(W*0.022)}px 'Cormorant Garamond', serif`;
-  cc.fillStyle = 'rgba(245,241,232,0.9)';
-  cc.textAlign = 'right';
-  cc.fillText('AURÉ', W - W*0.04, H - H*0.04);
-
-  ultimaFoto = c.toDataURL('image/jpeg', 0.92);
-  const dl = $('#dlBtn');
-  dl.style.opacity = '1';
-  dl.style.pointerEvents = 'auto';
-}
-
-function descargar() {
-  if (!ultimaFoto) return;
-  const a = document.createElement('a');
-  a.href = ultimaFoto;
-  a.download = `aure-${modeloActivo.id}-${Date.now()}.jpg`;
-  a.click();
-}
-
-/* -------------------------------------------------------------------------
-   10) HELPERS DE VISTAS
-   ------------------------------------------------------------------------- */
-function mostrar(sel){ ocultarTodos(); $(sel).classList.remove('hidden'); }
-function ocultarTodos(){ document.querySelectorAll('.veil').forEach(v=>v.classList.add('hidden')); }
-function fallar(msg){ $('#errorMsg').textContent = msg; mostrar('#error'); }
-
-/* -------------------------------------------------------------------------
-   11) EVENTOS
-   ------------------------------------------------------------------------- */
-$('#startBtn').onclick  = iniciar;
-$('#retryBtn').onclick  = iniciar;
-$('#shutter').onclick   = capturar;
-$('#dlBtn').onclick      = descargar;
-$('#tuneBtn').onclick    = () => $('#tune').classList.toggle('open');
-$('#sizeRange').oninput  = e => ajusteTamano = e.target.value / 100;
-$('#yRange').oninput      = e => ajusteY = +e.target.value;
-
-/* init */
-precargarImagenes();
-renderChips();
-</script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
