@@ -233,19 +233,24 @@ function crearGrupoFallback(tex, colorMarco, aspect) {
 
   // el borde superior real de la imagen queda en y = aspect/2 (no en 0.5:
   // eso era válido solo cuando el achatado lo hacía el grupo). La bisagra
-  // sale un poco por debajo de ese borde, contra fotos reales de Auré
-  // Terra/Noir (auresunglasses.com.ar): pegada arriba, casi recta, y
-  // recién cae hacia la oreja sobre el final — con caída moderada para
-  // que no dispare la patilla lejos de la cabeza.
+  // sale un poco por debajo de ese borde — medido con precisión de píxel
+  // sobre una foto de frente real de Auré Noir (fondo liso, sin perspectiva).
+  //
+  // La forma de la patilla sale del código óptico grabado en el propio
+  // lente en las fotos de producto ("49□24-142"): 49mm de lente, 24mm de
+  // puente, 142mm de patilla — casi exactamente 1 unidad de ANCHO_BASE
+  // (140). Una patilla real es prácticamente RECTA en casi todo ese largo
+  // y recién dobla en gancho hacia la oreja en el último tramo (~12-15mm),
+  // no una caída gradual desde la bisagra como estaba antes.
   const bordeSuperior = aspect / 2;
-  const bisagraY = bordeSuperior * 0.8;
+  const bisagraY = bordeSuperior * 0.85;
   const matVarilla = new THREE.MeshStandardMaterial({ color: colorMarco, roughness: 0.3, metalness: 0.3, envMapIntensity: 1.1 });
   [1, -1].forEach(lado => {
     const bisagra = new THREE.Vector3(lado * 0.49, bisagraY, 0);
-    const codo     = new THREE.Vector3(lado * 0.53, bisagraY - 0.09, -0.5);
-    const puntaOreja = new THREE.Vector3(lado * 0.50, bisagraY - 0.26, -0.95);
-    grupo.add(crearVarilla(bisagra, codo, 0.018, matVarilla));
-    grupo.add(crearVarilla(codo, puntaOreja, 0.018, matVarilla));
+    const recta    = new THREE.Vector3(lado * 0.50, bisagraY - 0.02, -0.87);
+    const puntaOreja = new THREE.Vector3(lado * 0.47, bisagraY - 0.24, -1.01);
+    grupo.add(crearVarilla(bisagra, recta, 0.018, matVarilla));
+    grupo.add(crearVarilla(recta, puntaOreja, 0.018, matVarilla));
   });
 
   return grupo;
