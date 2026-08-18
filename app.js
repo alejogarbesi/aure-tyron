@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/environments/RoomEnvironment.js';
 
 /* -------------------------------------------------------------------------
    0) CATÁLOGO DE MODELOS
@@ -100,6 +101,15 @@ function initEscena3D() {
   const luzDir = new THREE.DirectionalLight(0xffffff, 0.55);
   luzDir.position.set(0.4, 1, 1);
   scene.add(luzDir);
+
+  // environment de estudio (genérico, no es una foto real): sin esto el
+  // acetato brillante queda "mate" porque solo reacciona a 2 luces planas.
+  // Con reflejos de ambiente, el marco levanta brillos suaves que se mueven
+  // al girar la cabeza — es lo que más se nota como "objeto real" en una
+  // foto de producto, y no depende de tener un .glb ni assets nuevos.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  pmrem.dispose();
 
   // el grupo recibe la matriz de pose facial completa (posición+rotación+escala)
   faceAnchor = new THREE.Object3D();
@@ -196,7 +206,7 @@ function crearGrupoFallback(tex, colorMarco) {
   const geoLente = new THREE.PlaneGeometry(1, 1);
   const frente = new THREE.Mesh(
     geoLente,
-    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.3, metalness: 0.08, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.2, metalness: 0.12, envMapIntensity: 1.1, side: THREE.DoubleSide })
   );
   grupo.add(frente);
 
@@ -206,17 +216,23 @@ function crearGrupoFallback(tex, colorMarco) {
     geoLente,
     new THREE.MeshStandardMaterial({
       map: tex, transparent: true, side: THREE.DoubleSide,
-      color: colorMarco.clone().multiplyScalar(0.45), roughness: 0.55, metalness: 0.1,
+      color: colorMarco.clone().multiplyScalar(0.45), roughness: 0.45, metalness: 0.15, envMapIntensity: 0.8,
     })
   );
   fondo.position.z = -0.06;
   grupo.add(fondo);
 
-  const matVarilla = new THREE.MeshStandardMaterial({ color: colorMarco, roughness: 0.4, metalness: 0.25 });
+  // puntos calibrados a ojo contra fotos reales de producto de auresunglasses.com.ar
+  // (Terra y Noir, ambas de perfil 3/4): la bisagra sale casi del borde
+  // superior del marco, no del medio, y la patilla se mantiene bastante
+  // recta/alta la mayor parte del recorrido — recién cae hacia la oreja
+  // sobre el final (esa parte no se ve en las fotos de estudio, que
+  // cortan la patilla antes, pero hace falta para que cierre visualmente).
+  const matVarilla = new THREE.MeshStandardMaterial({ color: colorMarco, roughness: 0.3, metalness: 0.3, envMapIntensity: 1.1 });
   [1, -1].forEach(lado => {
-    const bisagra = new THREE.Vector3(lado * 0.49, 0.10, 0);
-    const codo     = new THREE.Vector3(lado * 0.55, 0.05, -0.55);
-    const puntaOreja = new THREE.Vector3(lado * 0.53, -0.12, -1.10);
+    const bisagra = new THREE.Vector3(lado * 0.49, 0.40, 0);
+    const codo     = new THREE.Vector3(lado * 0.56, 0.36, -0.62);
+    const puntaOreja = new THREE.Vector3(lado * 0.54, 0.10, -1.15);
     grupo.add(crearVarilla(bisagra, codo, 0.018, matVarilla));
     grupo.add(crearVarilla(codo, puntaOreja, 0.018, matVarilla));
   });
