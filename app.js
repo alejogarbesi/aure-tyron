@@ -68,8 +68,8 @@ const glCanvas = $('#glCanvas');
 
 let modeloActivo = MODELOS[0];
 let faceLandmarker = null;
-let renderer, scene, camera, faceAnchor, contenidoActivo, glassesMesh;
-let texturas = {};              // id -> { texture, aspect, ready }
+let renderer, scene, camera, faceAnchor, contenidoActivo;
+let texturas = {};              // id -> { texture, aspect, ready, grupo }
 let modelos3D = {};             // id -> { escena, escalaAuto, ready }
 let rafId = null;
 let lastVideoTime = -1;
@@ -123,10 +123,6 @@ function initEscena3D() {
   contenidoActivo = new THREE.Object3D();
   contenidoActivo.renderOrder = 1;
   faceAnchor.add(contenidoActivo);
-
-  const geo = new THREE.PlaneGeometry(1, 1);
-  const mat = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.35, metalness: 0.05 });
-  glassesMesh = new THREE.Mesh(geo, mat);
 }
 
 function ajustarViewport(w, h) {
@@ -140,16 +136,110 @@ function ajustarViewport(w, h) {
 /* -------------------------------------------------------------------------
    4) ASSETS DE LOS MODELOS (PNG plano y, si existe, .glb real)
    ------------------------------------------------------------------------- */
+
+// Sin .glb, el PNG por sí solo es un plano sin espesor y sin patillas — se
+// nota "de canto" al girar la cabeza. Mientras no haya un modelo 3D real por
+// producto, armamos un fallback procedural a partir del mismo PNG: una
+// segunda cara trasera (da profundidad al marco) y dos patillas genéricas
+// que van hacia la oreja, coloreadas con el tono de marco muestreado del
+// propio PNG. No reemplaza a un .glb escaneado, pero se deja de ver "recorte
+// de papel" al girar — y funciona para el catálogo entero sin assets nuevos.
+
+function colorDeBorde(img) {
+  const cv = document.createElement('canvas');
+  cv.width = img.naturalWidth;
+  cv.height = img.naturalHeight;
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const cy = Math.max(0, Math.floor(cv.height / 2) - 1);
+  const filaCentro = ctx.getImageData(0, cy, cv.width, 1).data;
+  // alpha > 250 (no >0) a propósito: el borde recortado suele tener 1-2px
+  // antialiaseados semitransparentes, mezclados con el fondo — un umbral
+  // bajo agarra ese halo (queda gris claro) en vez del color real del marco.
+  let xBorde = -1;
+  for (let x = 0; x < cv.width; x++) {
+    if (filaCentro[x * 4 + 3] > 250) { xBorde = x; break; }
+  }
+  if (xBorde < 0) return new THREE.Color(0x1a1a1a); // sin borde opaco: negro genérico
+
+  // el primer píxel opaco puede ser un brillo/sombra de la foto de producto,
+  // no el color plano del marco — promediamos un bloque un poco más adentro
+  // en vez de quedarnos con ese único píxel, para un color representativo.
+  const margen = 12, lado = 24;
+  const x0 = Math.min(cv.width - lado, xBorde + margen);
+  const y0 = Math.max(0, cy - Math.floor(lado / 2));
+  const bloque = ctx.getImageData(x0, y0, lado, Math.min(lado, cv.height - y0)).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  for (let i = 0; i < bloque.length; i += 4) {
+    if (bloque[i + 3] > 250) { r += bloque[i]; g += bloque[i + 1]; b += bloque[i + 2]; n++; }
+  }
+  if (n === 0) return new THREE.Color(filaCentro[xBorde * 4] / 255, filaCentro[xBorde * 4 + 1] / 255, filaCentro[xBorde * 4 + 2] / 255);
+  return new THREE.Color(r / n / 255, g / n / 255, b / n / 255);
+}
+
+// varilla recta entre dos puntos (usada para armar cada tramo de patilla)
+function crearVarilla(desde, hacia, grosor, material) {
+  const dir = new THREE.Vector3().subVectors(hacia, desde);
+  const largo = dir.length();
+  const geo = new THREE.CylinderGeometry(grosor, grosor, largo, 6);
+  const varilla = new THREE.Mesh(geo, material);
+  varilla.position.copy(desde).addScaledVector(dir, 0.5);
+  varilla.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return varilla;
+}
+
+// coordenadas en el espacio unitario del plano (x,y de -0.5 a 0.5, z=0 en
+// el frente); contenidoActivo las escala luego al tamaño real del modelo.
+function crearGrupoFallback(tex, colorMarco) {
+  const grupo = new THREE.Group();
+
+  const geoLente = new THREE.PlaneGeometry(1, 1);
+  const frente = new THREE.Mesh(
+    geoLente,
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.3, metalness: 0.08, side: THREE.DoubleSide })
+  );
+  grupo.add(frente);
+
+  // cara trasera, levemente hundida: le da espesor real al marco (deja de
+  // ser un plano infinitamente fino) sin necesitar geometría nueva
+  const fondo = new THREE.Mesh(
+    geoLente,
+    new THREE.MeshStandardMaterial({
+      map: tex, transparent: true, side: THREE.DoubleSide,
+      color: colorMarco.clone().multiplyScalar(0.45), roughness: 0.55, metalness: 0.1,
+    })
+  );
+  fondo.position.z = -0.06;
+  grupo.add(fondo);
+
+  const matVarilla = new THREE.MeshStandardMaterial({ color: colorMarco, roughness: 0.4, metalness: 0.25 });
+  [1, -1].forEach(lado => {
+    const bisagra = new THREE.Vector3(lado * 0.49, 0.10, 0);
+    const codo     = new THREE.Vector3(lado * 0.55, 0.05, -0.55);
+    const puntaOreja = new THREE.Vector3(lado * 0.53, -0.12, -1.10);
+    grupo.add(crearVarilla(bisagra, codo, 0.018, matVarilla));
+    grupo.add(crearVarilla(codo, puntaOreja, 0.018, matVarilla));
+  });
+
+  return grupo;
+}
+
 function precargarTexturas() {
   const loader = new THREE.TextureLoader();
   MODELOS.forEach(m => {
-    texturas[m.id] = { texture: null, aspect: 0.42, ready: false };
+    texturas[m.id] = { texture: null, aspect: 0.42, ready: false, grupo: null };
     loader.load(
       m.img,
       tex => {
         tex.colorSpace = THREE.SRGBColorSpace;
         const img = tex.image;
-        texturas[m.id] = { texture: tex, aspect: img.naturalHeight / img.naturalWidth, ready: true };
+        const colorMarco = colorDeBorde(img);
+        texturas[m.id] = {
+          texture: tex,
+          aspect: img.naturalHeight / img.naturalWidth,
+          ready: true,
+          grupo: crearGrupoFallback(tex, colorMarco),
+        };
         if (m.id === modeloActivo.id) aplicarModelo(m);
       },
       undefined,
@@ -185,20 +275,19 @@ function aplicarModelo(m) {
   const modelo3D = modelos3D[m.id];
   const usar3D = modelo3D && modelo3D.ready;
 
-  contenidoActivo.clear();
-  contenidoActivo.add(usar3D ? modelo3D.escena : glassesMesh);
-
   const c = m.calibracion;
   let ancho, alto = 1;
 
   if (usar3D) {
+    contenidoActivo.clear();
+    contenidoActivo.add(modelo3D.escena);
     ancho = modelo3D.escalaAuto * c.escala * ajusteSesion.escala;
     alto = ancho;
   } else {
     const t = texturas[m.id];
     if (!t || !t.ready) return;
-    glassesMesh.material.map = t.texture;
-    glassesMesh.material.needsUpdate = true;
+    contenidoActivo.clear();
+    contenidoActivo.add(t.grupo);
     ancho = ANCHO_BASE * c.escala * ajusteSesion.escala;
     alto = ancho * t.aspect;
   }

@@ -164,8 +164,12 @@ comportamiento de permisos/orientación de Safari mobile.
   con precisión de laboratorio — hay que afinarlos en cámara real (ver
   arriba). Es el mismo proceso que usa cualquier probador de RA, incluido
   Camweara.
-- Con la imagen plana (PNG), el costado del armazón en giros muy extremos
-  (~90°) no muestra la patilla real — para eso haría falta un modelo 3D
-  (`.glb`) por producto, que es un trabajo de contenido mucho mayor. Queda
-  como mejora futura para modelos "hero" si hace falta ese último nivel de
-  realismo.
+- Sin `.glb`, el PNG ya no es un plano puro: `app.js` arma automáticamente
+  un fallback con espesor (cara trasera) y dos patillas genéricas hacia la
+  oreja, coloreadas muestreando el borde del propio PNG. Mejora bastante
+  la sensación de volumen al girar, pero sigue siendo una aproximación
+  genérica (misma forma de patilla para todos los modelos) — no la
+  geometría real del producto. Para eso sigue haciendo falta el `.glb`
+  por producto (ver "Modelos 3D reales" arriba), que es un trabajo de
+  contenido mayor y queda como mejora futura para modelos "hero" si hace
+  falta ese último nivel de realismo.
