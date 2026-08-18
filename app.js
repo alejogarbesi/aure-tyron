@@ -198,9 +198,16 @@ function crearVarilla(desde, hacia, grosor, material) {
   return varilla;
 }
 
-// coordenadas en el espacio unitario del plano (x,y de -0.5 a 0.5, z=0 en
-// el frente); contenidoActivo las escala luego al tamaño real del modelo.
-function crearGrupoFallback(tex, colorMarco) {
+// coordenadas en el espacio unitario del ANCHO del modelo (x,z en unidades
+// de "ancho de marco"; contenidoActivo escala esto por igual en los 3 ejes).
+// OJO: el plano del PNG achata su propia Y (mesh.scale.y = aspect) en vez
+// de depender de una escala no-uniforme del grupo — si el grupo escalara
+// Y distinto de X/Z (como antes), cualquier geometría 3D real (las
+// patillas) quedaría aplastada en altura pero no en profundidad, así que
+// la patilla se ve casi recta y "vuela" lejos de la cabeza en vez de
+// acompañarla. Con escala uniforme, 1 unidad de X/Y/Z siempre representa
+// lo mismo (el ancho real del marco), y la patilla mantiene su ángulo.
+function crearGrupoFallback(tex, colorMarco, aspect) {
   const grupo = new THREE.Group();
 
   const geoLente = new THREE.PlaneGeometry(1, 1);
@@ -208,6 +215,7 @@ function crearGrupoFallback(tex, colorMarco) {
     geoLente,
     new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.2, metalness: 0.12, envMapIntensity: 1.1, side: THREE.DoubleSide })
   );
+  frente.scale.y = aspect;
   grupo.add(frente);
 
   // cara trasera, levemente hundida: le da espesor real al marco (deja de
@@ -219,20 +227,23 @@ function crearGrupoFallback(tex, colorMarco) {
       color: colorMarco.clone().multiplyScalar(0.45), roughness: 0.45, metalness: 0.15, envMapIntensity: 0.8,
     })
   );
+  fondo.scale.y = aspect;
   fondo.position.z = -0.06;
   grupo.add(fondo);
 
-  // puntos calibrados a ojo contra fotos reales de producto de auresunglasses.com.ar
-  // (Terra y Noir, ambas de perfil 3/4): la bisagra sale casi del borde
-  // superior del marco, no del medio, y la patilla se mantiene bastante
-  // recta/alta la mayor parte del recorrido — recién cae hacia la oreja
-  // sobre el final (esa parte no se ve en las fotos de estudio, que
-  // cortan la patilla antes, pero hace falta para que cierre visualmente).
+  // el borde superior real de la imagen queda en y = aspect/2 (no en 0.5:
+  // eso era válido solo cuando el achatado lo hacía el grupo). La bisagra
+  // sale un poco por debajo de ese borde, contra fotos reales de Auré
+  // Terra/Noir (auresunglasses.com.ar): pegada arriba, casi recta, y
+  // recién cae hacia la oreja sobre el final — con caída moderada para
+  // que no dispare la patilla lejos de la cabeza.
+  const bordeSuperior = aspect / 2;
+  const bisagraY = bordeSuperior * 0.8;
   const matVarilla = new THREE.MeshStandardMaterial({ color: colorMarco, roughness: 0.3, metalness: 0.3, envMapIntensity: 1.1 });
   [1, -1].forEach(lado => {
-    const bisagra = new THREE.Vector3(lado * 0.49, 0.40, 0);
-    const codo     = new THREE.Vector3(lado * 0.56, 0.36, -0.62);
-    const puntaOreja = new THREE.Vector3(lado * 0.54, 0.10, -1.15);
+    const bisagra = new THREE.Vector3(lado * 0.49, bisagraY, 0);
+    const codo     = new THREE.Vector3(lado * 0.53, bisagraY - 0.09, -0.5);
+    const puntaOreja = new THREE.Vector3(lado * 0.50, bisagraY - 0.26, -0.95);
     grupo.add(crearVarilla(bisagra, codo, 0.018, matVarilla));
     grupo.add(crearVarilla(codo, puntaOreja, 0.018, matVarilla));
   });
@@ -250,11 +261,12 @@ function precargarTexturas() {
         tex.colorSpace = THREE.SRGBColorSpace;
         const img = tex.image;
         const colorMarco = colorDeBorde(img);
+        const aspecto = img.naturalHeight / img.naturalWidth;
         texturas[m.id] = {
           texture: tex,
-          aspect: img.naturalHeight / img.naturalWidth,
+          aspect: aspecto,
           ready: true,
-          grupo: crearGrupoFallback(tex, colorMarco),
+          grupo: crearGrupoFallback(tex, colorMarco, aspecto),
         };
         if (m.id === modeloActivo.id) aplicarModelo(m);
       },
@@ -292,23 +304,25 @@ function aplicarModelo(m) {
   const usar3D = modelo3D && modelo3D.ready;
 
   const c = m.calibracion;
-  let ancho, alto = 1;
+  let ancho;
 
   if (usar3D) {
     contenidoActivo.clear();
     contenidoActivo.add(modelo3D.escena);
     ancho = modelo3D.escalaAuto * c.escala * ajusteSesion.escala;
-    alto = ancho;
   } else {
     const t = texturas[m.id];
     if (!t || !t.ready) return;
     contenidoActivo.clear();
     contenidoActivo.add(t.grupo);
     ancho = ANCHO_BASE * c.escala * ajusteSesion.escala;
-    alto = ancho * t.aspect;
   }
 
-  contenidoActivo.scale.set(ancho, usar3D ? ancho : alto, ancho);
+  // escala SIEMPRE uniforme: si Y escalara distinto de X/Z (como antes,
+  // para achatar el PNG a su relación de aspecto), cualquier geometría 3D
+  // real dentro del grupo —las patillas— quedaría distorsionada en ángulo.
+  // El achatado del PNG ahora se hace en el propio mesh (ver crearGrupoFallback).
+  contenidoActivo.scale.setScalar(ancho);
   contenidoActivo.position.set(
     c.x,
     Y_BASE + c.y + ajusteSesion.y,
