@@ -1,0 +1,31 @@
+<!--
+  AURÉ · Snippet de embed del Visor 360° para Tiendanube
+  -------------------------------------------------------
+  Pegá este bloque en el editor de HTML de la descripción del producto (o
+  en un bloque de "HTML personalizado" si tu plan lo permite), reemplazando
+  el bloque de imágenes o justo debajo de la galería principal.
+
+  Reemplazá:
+    - VISOR360_URL   → la URL donde deployaste visor360.html
+                        (ej: https://tu-usuario.github.io/aure-tyron/visor360.html)
+    - CARPETA_FOTOS  → la carpeta con las fotos en turntable de ESTE modelo
+                        (ej: https://tu-usuario.github.io/aure-tyron/360/terra/)
+    - CANTIDAD_FOTOS → cuántas fotos tiene el turntable de este modelo (24-72)
+    - PREFIJO/EXT    → cómo se llaman los archivos (ver "Preparar las fotos"
+                        en el README de este repo)
+
+  El iframe usa loading="lazy": el navegador no arranca a bajar nada del
+  visor hasta que esté por entrar en pantalla, así no compite con el resto
+  de la página de producto. El visor 360 en sí, además, no arranca a
+  precargar las fotos hasta que el propio widget esté cerca del viewport
+  (doble capa de lazy-load).
+-->
+
+<div style="width:100%; max-width:640px; margin:0 auto; aspect-ratio:1/1; background:#F5F1E8;">
+  <iframe
+    src="VISOR360_URL?carpeta=CARPETA_FOTOS&frames=CANTIDAD_FOTOS&prefix=PREFIJO&ext=EXT&pad=3&fondo=F5F1E8&acento=C9A961"
+    loading="lazy"
+    title="Vista 360° del anteojo"
+    style="width:100%; height:100%; border:0; display:block;"
+  ></iframe>
+</div>

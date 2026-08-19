@@ -11,6 +11,9 @@ inclinar o acercarte a cámara.
 - **`style.css`** — diseño de marca (negro / hueso / oro), mobile-first.
 - **`app.js`** — toda la lógica: cámara, tracking, render 3D, captura, integración con Tiendanube.
 - **`*.png`** — catálogo de lentes (PNG recortado, fondo transparente, de frente).
+- **`visor360.html`** — widget aparte: spin viewer 360° de producto a partir
+  de fotos en turntable, para la página de cada anteojo (ver sección propia
+  más abajo). No depende de cámara ni del resto del probador.
 
 Sin build step: todo se sirve como archivos estáticos, las librerías
 (Three.js y MediaPipe Tasks Vision) se cargan por CDN vía `<script type="importmap">`.
@@ -154,6 +157,79 @@ falta completar el SKU si querés que abra directo en el modelo correcto.
 No hay forma de emular esto 100% sin un iPhone real: el simulador de iOS no
 tiene cámara real y los navegadores de escritorio no reproducen el
 comportamiento de permisos/orientación de Safari mobile.
+
+## Visor 360° de producto (fotos en turntable)
+
+`visor360.html` es un widget aparte del probador virtual: un visor de
+producto para la página de cada anteojo (como el de infinit.la), donde el
+usuario arrastra para girarlo 360° a partir de una serie de fotos tomadas en
+turntable — no depende de cámara ni de `.glb`, así que funciona en
+cualquier navegador de escritorio o mobile.
+
+### Preparar las fotos
+
+- Sacá entre 24 y 72 fotos del anteojo girándolo en el mismo eje, mismo
+  fondo, misma luz (una mesa giratoria/turntable manual alcanza — no hace
+  falta equipo profesional, lo importante es la consistencia entre tomas).
+- Recortá/centrá todas igual y exportá en el mismo tamaño. Usá **WebP**
+  (o JPG si no podés convertir), ~800-1000px de lado mayor, calidad
+  75-80% — a más cuadros y más resolución, más pesa el set total en 4G.
+  Como referencia: 48 fotos de 900px en WebP ronda 1-2MB en total.
+- Nombralas con numeración consecutiva con ceros a la izquierda, ej:
+  `terra-001.webp` … `terra-048.webp`.
+- Subí la carpeta al repo (o a donde vayas a alojar las fotos) y anotá la
+  URL pública de la carpeta.
+
+### Parámetros de `visor360.html` (todo por query string)
+
+| Parámetro | Qué hace | Ejemplo |
+|---|---|---|
+| `carpeta` | Carpeta con las fotos (con o sin `/` final) | `360/terra/` |
+| `frames` | Cantidad de fotos | `48` |
+| `prefix` | Prefijo del nombre de archivo | `terra-` |
+| `ext` | Extensión | `webp` |
+| `pad` | Cantidad de dígitos con cero a la izquierda | `3` |
+| `inicio` | Número del primer archivo (si no arranca en 1) | `1` |
+| `lista` | Alternativa a `carpeta`/`frames`: lista de URLs separadas por coma, para nombres que no siguen un patrón | `a.webp,b.webp,...` |
+| `sensibilidad` | Píxeles de drag por frame (default `4.5`) — subilo para que gire más lento/preciso | `6` |
+| `bucle` | `0` para no dar la vuelta completa (se frena en el primer/último frame) | `0` |
+| `hint` | `0` para no mostrar el cartel "Arrastrá para girar" | `0` |
+| `fondo` | Color de fondo del visor, en hex sin `#` | `F5F1E8` |
+| `acento` | Color del spinner de carga, en hex sin `#` | `C9A961` |
+
+Ejemplo completo:
+
+```
+visor360.html?carpeta=360/terra/&frames=48&prefix=terra-&ext=webp&pad=3&fondo=F5F1E8&acento=C9A961
+```
+
+### Embeber en Tiendanube
+
+Mismo patrón que el probador virtual: se embebe como `<iframe>` en la
+página de producto (ver `embed-visor360-tiendanube.html` en este repo para
+el snippet listo para pegar). A diferencia del probador, este widget va
+**inline** en la galería del producto, no como overlay de pantalla
+completa, y no necesita permiso de cámara.
+
+Un `<iframe>` por modelo (cambiando `carpeta`/`frames`/`prefix` en el `src`
+de cada uno) — como el widget es un único archivo reusable, migrás el
+catálogo pegando el snippet una vez por producto con sus propios
+parámetros, sin tocar código.
+
+### Rendimiento en 4G
+
+- El `<iframe>` del snippet lleva `loading="lazy"`: el navegador no le pide
+  nada hasta que está por entrar en pantalla, así no compite con el resto
+  de la página de producto ni bloquea su carga.
+- Adentro del widget hay una segunda capa de lazy-load (`IntersectionObserver`):
+  las fotos no arrancan a precargarse hasta que el visor mismo está cerca
+  del viewport.
+- Mientras precarga muestra un loader con % de avance; el primer cuadro se
+  muestra apenas está listo (antes de que terminen los demás) para que se
+  perciba rápido. El drag se habilita recién cuando terminó de precargar
+  todo el set, para que no se note "salteado" al girar.
+- Si una foto puntual falla (404, nombre mal escrito), el visor la saltea
+  sola sin trabarse ni mostrar el ícono de imagen rota.
 
 ## Limitaciones conocidas / próximos pasos
 

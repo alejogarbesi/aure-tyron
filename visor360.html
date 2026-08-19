@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Auré · Visor 360°</title>
+<style>
+  :root {
+    --aure-bg: transparent;
+    --aure-accent: #C9A961;
+    --aure-fg: #0A0A0A;
+    --aure-hint-bg: rgba(10, 10, 10, .74);
+    --aure-hint-fg: #F5F1E8;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: var(--aure-bg);
+    overscroll-behavior: none;
+  }
+  #stage {
+    position: relative; width: 100%; height: 100%; min-height: 240px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: pan-y; cursor: grab; user-select: none;
+    background: var(--aure-bg); -webkit-touch-callout: none;
+  }
+  #stage.arrastrando { cursor: grabbing; }
+  #frameImg {
+    max-width: 100%; max-height: 100%; width: auto; height: auto;
+    pointer-events: none; -webkit-user-drag: none; user-select: none;
+    display: block; opacity: 0; transition: opacity .25s ease;
+  }
+  #frameImg.visible { opacity: 1; }
+
+  #loader {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; background: var(--aure-bg);
+  }
+  .spinner {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2.5px solid rgba(0,0,0,.12); border-top-color: var(--aure-accent);
+    animation: girar .9s linear infinite;
+  }
+  #loaderTexto {
+    font: 500 12px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: .04em; color: var(--aure-fg); opacity: .65;
+  }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  #hint {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+    background: var(--aure-hint-bg); color: var(--aure-hint-fg);
+    font: 500 12px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: .03em; pointer-events: none; opacity: 0; white-space: nowrap;
+    transition: opacity .4s ease;
+  }
+  #hint.mostrar { opacity: 1; }
+  #hint svg { width: 18px; height: 18px; animation: arrastrarHint 1.6s ease-in-out infinite; }
+  @keyframes arrastrarHint {
+    0%, 100% { transform: translateX(-5px); }
+    50%      { transform: translateX(5px); }
+  }
+
+  #errorMsg {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; font: 500 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #a33;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <img id="frameImg" alt="Anteojo — vista 360°" draggable="false" />
+    <div id="loader">
+      <div class="spinner"></div>
+      <div id="loaderTexto">Cargando 0%</div>
+    </div>
+    <div id="hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 12h8M8 12l3-3M8 12l3 3M16 12l-3-3M16 12l-3 3" />
+      </svg>
+      <span>Arrastrá para girar</span>
+    </div>
+    <div id="errorMsg"></div>
+  </div>
+
+<script>
+/* =========================================================================
+   AURÉ · Visor 360° (spin viewer a partir de fotos en turntable)
+   ---------------------------------------------------------------------
+   Todo se configura por query string, así el mismo archivo sirve para
+   cualquier modelo del catálogo sin tocar código — ver README para la
+   referencia completa de parámetros y cómo embeberlo en Tiendanube.
+   ========================================================================= */
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+
+  function resolverImagenes() {
+    var lista = params.get('lista');
+    if (lista) {
+      return lista.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    var carpeta = params.get('carpeta');
+    if (!carpeta) return [];
+    var frames = parseInt(params.get('frames') || '36', 10);
+    var prefix = params.get('prefix') || '';
+    var ext = params.get('ext') || 'jpg';
+    var pad = parseInt(params.get('pad') || '3', 10);
+    var inicio = parseInt(params.get('inicio') || '1', 10);
+    if (!carpeta.endsWith('/')) carpeta += '/';
+    var urls = [];
+    for (var i = 0; i < frames; i++) {
+      var n = String(inicio + i).padStart(pad, '0');
+      urls.push(carpeta + prefix + n + '.' + ext);
+    }
+    return urls;
+  }
+
+  var urls = resolverImagenes();
+
+  var stage = document.getElementById('stage');
+  var frameImg = document.getElementById('frameImg');
+  var loader = document.getElementById('loader');
+  var loaderTexto = document.getElementById('loaderTexto');
+  var hint = document.getElementById('hint');
+  var errorMsg = document.getElementById('errorMsg');
+
+  function mostrarError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'flex';
+    loader.style.display = 'none';
+  }
+
+  if (!urls.length) {
+    mostrarError('Faltan parámetros: pasá "carpeta" + "frames" (o "lista") en la URL. Ver README.');
+    return;
+  }
+
+  // ---- config ajustable por parámetro ----
+  var SENSIBILIDAD = parseFloat(params.get('sensibilidad') || '4.5'); // px de drag por frame
+  var BUCLE = params.get('bucle') !== '0'; // gira en loop continuo por defecto
+  var AUTO_HINT = params.get('hint') !== '0';
+  var fondo = params.get('fondo');
+  if (fondo) document.documentElement.style.setProperty('--aure-bg', '#' + fondo.replace('#', ''));
+  var acento = params.get('acento');
+  if (acento) document.documentElement.style.setProperty('--aure-accent', '#' + acento.replace('#', ''));
+
+  var N = urls.length;
+  var imagenes = new Array(N);
+  var actual = 0;
+  var listo = false;
+
+  /* -----------------------------------------------------------------------
+     precarga: no arranca hasta que el visor esté cerca del viewport, para
+     no competir por ancho de banda con el resto de la página de producto
+     ----------------------------------------------------------------------- */
+  function precargar() {
+    var cargadas = 0;
+    urls.forEach(function (url, i) {
+      var img = new Image();
+      img.onload = img.onerror = function () {
+        cargadas++;
+        imagenes[i] = img;
+        loaderTexto.textContent = 'Cargando ' + Math.round((cargadas / N) * 100) + '%';
+        if (i === 0 && img.naturalWidth) {
+          frameImg.src = img.src;
+          frameImg.classList.add('visible');
+        }
+        if (cargadas === N) {
+          listo = true;
+          loader.style.display = 'none';
+          fijarFrame(0, true);
+          if (AUTO_HINT) mostrarHintInicial();
+        }
+      };
+      img.src = url;
+    });
+  }
+
+  var io = new IntersectionObserver(function (entradas) {
+    entradas.forEach(function (e) {
+      if (e.isIntersecting) { precargar(); io.disconnect(); }
+    });
+  }, { rootMargin: '200px' });
+  io.observe(stage);
+
+  /* -----------------------------------------------------------------------
+     drag con Pointer Events (mouse + touch unificados)
+     ----------------------------------------------------------------------- */
+  var arrastrando = false;
+  var xInicio = 0, frameInicio = 0;
+  var ultimaX = 0, ultimaT = 0, velocidad = 0;
+  var inerciaId = null;
+
+  function envolver(f) {
+    return BUCLE ? ((f % N) + N) % N : Math.max(0, Math.min(N - 1, f));
+  }
+
+  function frameEn(x) {
+    var delta = (x - xInicio) / SENSIBILIDAD;
+    return envolver(Math.round(frameInicio - delta));
+  }
+
+  function fijarFrame(i, forzar) {
+    if (!listo) return;
+    var img = imagenes[i];
+    if (!img || !img.naturalWidth) return; // frame roto (404, etc.): se mantiene el anterior
+    if (i === actual && !forzar) return;
+    actual = i;
+    frameImg.src = img.src;
+    frameImg.classList.add('visible');
+  }
+
+  function onDown(e) {
+    if (!listo) return;
+    cancelarInercia();
+    arrastrando = true;
+    stage.classList.add('arrastrando');
+    if (stage.setPointerCapture) stage.setPointerCapture(e.pointerId);
+    xInicio = e.clientX;
+    frameInicio = actual;
+    ultimaX = e.clientX; ultimaT = performance.now(); velocidad = 0;
+    ocultarHint();
+  }
+  function onMove(e) {
+    if (!arrastrando) return;
+    var ahora = performance.now();
+    var dt = ahora - ultimaT;
+    if (dt > 0) velocidad = (e.clientX - ultimaX) / dt; // px/ms
+    ultimaX = e.clientX; ultimaT = ahora;
+    fijarFrame(frameEn(e.clientX));
+  }
+  function onUp(e) {
+    if (!arrastrando) return;
+    arrastrando = false;
+    stage.classList.remove('arrastrando');
+    iniciarInercia(velocidad);
+  }
+
+  stage.addEventListener('pointerdown', onDown);
+  stage.addEventListener('pointermove', onMove);
+  stage.addEventListener('pointerup', onUp);
+  stage.addEventListener('pointercancel', onUp);
+  stage.addEventListener('pointerleave', function (e) { if (arrastrando) onUp(e); });
+
+  /* -----------------------------------------------------------------------
+     inercia al soltar: sigue girando y frena con fricción, en vez de
+     cortarse seco apenas se levanta el dedo/mouse
+     ----------------------------------------------------------------------- */
+  function iniciarInercia(vPxMs) {
+    var velFrames = -vPxMs / SENSIBILIDAD; // frames por ms — mismo signo que frameEn()
+    if (Math.abs(velFrames) < 0.01) return;
+    var acumulado = 0;
+    var ultimo = performance.now();
+    function paso(t) {
+      var dt = Math.min(t - ultimo, 48);
+      ultimo = t;
+      velFrames *= Math.pow(0.95, dt / 16.7); // fricción, normalizada a ~60fps
+      acumulado += velFrames * dt;
+      while (acumulado >= 1 || acumulado <= -1) {
+        var s = acumulado > 0 ? 1 : -1;
+        acumulado -= s;
+        fijarFrame(envolver(actual - s));
+      }
+      if (Math.abs(velFrames) > 0.01) {
+        inerciaId = requestAnimationFrame(paso);
+      }
+    }
+    inerciaId = requestAnimationFrame(paso);
+  }
+  function cancelarInercia() {
+    if (inerciaId) cancelAnimationFrame(inerciaId);
+    inerciaId = null;
+  }
+
+  /* -----------------------------------------------------------------------
+     hint "arrastrá para girar"
+     ----------------------------------------------------------------------- */
+  var hintTimeout;
+  function mostrarHintInicial() {
+    hint.classList.add('mostrar');
+    hintTimeout = setTimeout(ocultarHint, 3200);
+  }
+  function ocultarHint() {
+    hint.classList.remove('mostrar');
+    clearTimeout(hintTimeout);
+  }
+})();
+</script>
+</body>
+</html>
